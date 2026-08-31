@@ -38,6 +38,7 @@ import AdminSettings from './pages/admin/SettingsPage';
 import AdminAuditLogs from './pages/admin/AuditLogsPage';
 import AdminAutomation from './pages/admin/AutomationPage';
 import SystemHealthPage from './pages/admin/SystemHealthPage';
+import InstallerPage from './pages/InstallerPage';
 
 // Reseller pages
 import ResellerDashboard from './pages/reseller/DashboardPage';
@@ -120,6 +121,7 @@ export default function App() {
             </Route>
 
             {/* Auth */}
+            <Route path="/install" element={<InstallerPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />

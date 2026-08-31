@@ -208,3 +208,10 @@ export const saasPlansApi = {
   subscribe: (data: object) => api.post('/saas-plans/subscribe', data),
   cancel: (data?: object) => api.post('/saas-plans/cancel', data),
 };
+
+export const installerApi = {
+  status: () => api.get('/install/status'),
+  requirements: () => api.get('/install/requirements'),
+  testDb: (data: object) => api.post('/install/test-db', data),
+  execute: (data: object) => api.post('/install/execute', data),
+};

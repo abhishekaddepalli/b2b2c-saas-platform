@@ -211,7 +211,14 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Public SaaS Plans List & Health Probe
+    // Public SaaS Plans List, Health Probe & Web Installer
     Route::get('saas-plans', [\App\Http\Controllers\Api\V1\SaasPlanController::class, 'index']);
     Route::get('health', [\App\Http\Controllers\Api\V1\Admin\HealthCheckController::class, 'health']);
+
+    Route::prefix('install')->group(function () {
+        Route::get('status', [\App\Http\Controllers\Api\V1\InstallerController::class, 'status']);
+        Route::get('requirements', [\App\Http\Controllers\Api\V1\InstallerController::class, 'checkRequirements']);
+        Route::post('test-db', [\App\Http\Controllers\Api\V1\InstallerController::class, 'testDatabase']);
+        Route::post('execute', [\App\Http\Controllers\Api\V1\InstallerController::class, 'executeInstall']);
+    });
 });

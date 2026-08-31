@@ -1518,6 +1518,23 @@ describe('Production Stress Test, Concurrency, IDOR & Financial Hardening', func
     });
 });
 
+// ─── Web Installer Wizard & Environment Verification Test Suite ────────────
+
+describe('Graphical Web Installer Wizard & Environment Inspection', function () {
+
+    it('checks PHP requirements, inspects extensions, and checks database setup endpoints', function () {
+        // 1. Status endpoint
+        $resStatus = $this->getJson('/api/v1/install/status');
+        $resStatus->assertStatus(200);
+
+        // 2. Requirements inspection
+        $resReq = $this->getJson('/api/v1/install/requirements');
+        $resReq->assertStatus(200);
+        expect($resReq->json('php.passed'))->toBeTrue();
+        expect($resReq->json('extensions.pdo'))->toBeTrue();
+    });
+});
+
 
 
 

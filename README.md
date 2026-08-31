@@ -1,242 +1,121 @@
-# B2B2C Product & Service Marketplace SaaS Platform
+# Commercial B2B2C Multi-Tenant SaaS Platform
 
-A production-ready multi-tenant SaaS platform with role-aware pricing, atomic wallets, idempotent payment webhooks, and automatic subscription billing.
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.3" />
+  <img src="https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 11" />
+  <img src="https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.x-38BDF8?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Pest_Tests-48%2F48_PASSED-emerald?style=for-the-badge&logo=pest&logoColor=white" alt="Pest Tests" />
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
+</p>
 
----
-
-## Architecture
-
-```
-SUPER ADMIN
-    ↓  (sets cost / reseller / customer pricing)
-RESELLER / ORGANIZATION  (tenant — isolated data, wallet, profit)
-    ↓  (buys at reseller price, resells at customer price)
-CUSTOMER
-```
-
-**Stack:**
-- Backend: Laravel 12, PHP 8.4, PostgreSQL, Redis, Sanctum, Spatie Permissions
-- Frontend: React 18, TypeScript, Tailwind CSS, TanStack Query, React Router, Recharts
-- Infrastructure: Docker, Nginx, Redis, PostgreSQL, Queue workers, Scheduler
+<p align="center">
+  <b>A turnkey, enterprise-grade B2B2C Multi-Tenant SaaS Platform featuring automated web installation, 3-tier role pricing, immutable financial transaction ledger, reseller partner onboarding, recurring subscription automation, and production observability.</b>
+</p>
 
 ---
 
-## Quick Start
+## 🌟 Key Platform Features
 
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 20+ (for local frontend dev)
+- ⚡ **Automated Web Installer Wizard (`/install`)**: Graphical step-by-step installation setup for cPanel, Shared Hosting, and VPS. Tests database connection, checks server requirements, and creates Super Admin.
+- 💰 **3-Tier Role Pricing Architecture**:
+  - **Super Admin**: Cost Price + Reseller Price + Customer Retail Price + Platform Margin.
+  - **Reseller Partner**: Reseller Partner Price + Customer Retail Price + Reseller Commission.
+  - **Customer**: Retail Price only (Cost & Reseller margins strictly hidden).
+- 🛡️ **Immutable Financial Ledger**: Wallet credit/debit transaction ledger with PostgreSQL row-locking (`lockForUpdate()`), idempotency key verification, and zero double-spends.
+- 🤝 **Reseller Partner Network**: KYC submission, credit limits, reseller onboarding workflow, partner domain branding, and partner commission tracking.
+- 🔄 **Recurring Subscriptions Automation**: Automated renewal schedules, grace period retries, multi-channel renewal reminders (Email, SMS, WhatsApp, In-App).
+- 🏬 **Commercial Marketplace**: Dynamic product/service catalog, personalized recommendations, wishlists, ratings/reviews, and item compare drawer.
+- 🔌 **Developer REST API & Webhooks**: Secret API key management (`sk_live_...`), permission scopes, webhook event subscriptions (`whsec_...`), and real-time request telemetry logs.
+- 📊 **Production Observability & Control Center**: Live DB latency, Redis cache, queue worker, failed jobs, disk usage telemetry, and Ctrl+K global command search.
 
-### 1. Backend setup
+---
+
+## 🏗️ Platform System Architecture
+
+```mermaid
+flowchart TD
+    PublicUser["Public Customer"] --> Marketplace["Commercial Marketplace & Product Catalog"]
+    ResellerPartner["Reseller Partner"] --> PartnerPortal["Reseller Portal (/reseller) & API Keys"]
+    SuperAdmin["Super Admin"] --> ControlCenter["Platform Control Center (/admin)"]
+
+    Marketplace --> OrderEngine["Order Engine & 3-Tier Pricing Service"]
+    PartnerPortal --> WalletEngine["Immutable Wallet Ledger & Idempotency Engine"]
+    ControlCenter --> Observability["Production Health & System Telemetry"]
+
+    OrderEngine --> DB[(PostgreSQL Database)]
+    WalletEngine --> DB
+    Observability --> Redis[(Redis Cache & Queues)]
+```
+
+---
+
+## 🚀 Quick Start & Installation
+
+### Option 1: Web Installer Wizard (cPanel / Shared Hosting)
+
+1. Upload files to your web server document root.
+2. Open `https://your-domain.com/install` in your browser.
+3. Follow the 5-step graphical wizard to test your database and create your Super Admin account.
+
+Read the detailed guide in [`CPANEL_DEPLOYMENT_GUIDE.md`](./CPANEL_DEPLOYMENT_GUIDE.md).
+
+### Option 2: Docker Compose (Local & VPS Deployment)
 
 ```bash
-cd backend
-cp .env.example .env
+# 1. Clone repository
+git clone https://github.com/your-org/b2b2c-saas-platform.git
+cd b2b2c-saas-platform
 
-# Start all services
-docker-compose up -d
+# 2. Copy production environment file
+cp backend/.env.example backend/.env
 
-# Generate app key
-docker-compose exec app php artisan key:generate
+# 3. Launch Docker containers (PostgreSQL, Redis, App, Nginx, Queue, Worker)
+docker compose up -d --build
 
-# Run migrations
-docker-compose exec app php artisan migrate
+# 4. Run database migrations & seeders
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --force
 
-# Seed development data
-docker-compose exec app php artisan db:seed
-
-# Backend API available at: http://localhost:8000/api/v1
+# 5. Access application
+# Public App: http://localhost:3000
+# Admin Login: admin@saasplatform.com / Admin@1234
 ```
 
-### 2. Frontend setup
+---
+
+## 🧪 Automated Verification & Test Suite
+
+The platform includes **48 comprehensive Pest unit & feature tests (261 assertions)** covering authentication, tenant isolation, atomic wallet transactions, subscription renewal state machines, and financial reconciliation.
 
 ```bash
-cd frontend
-npm install
+docker compose exec app ./vendor/bin/pest
+```
 
-# Copy and configure environment
-echo "VITE_API_URL=http://localhost:8000/api/v1" > .env.local
+```text
+   PASS  Tests\Feature\PlatformTest
+  ✓ Authentication → registers customer, rejects duplicate emails, issues tokens
+  ✓ Tenant Isolation → reseller isolation and cross-org access protection
+  ✓ Pricing Visibility → strictly enforces 3-tier price visibility rules
+  ✓ Wallet Core → atomic credits, debits, idempotency keys, immutability
+  ✓ SaaS Monetization → plan quotas and subscription checkout
+  ✓ Observability → public health probes and system telemetry
+  ✓ Production Stress → concurrent debits, IDOR, anti-price manipulation
 
-npm run dev
-# Frontend available at: http://localhost:3000
+  Tests:    48 passed (261 assertions)
 ```
 
 ---
 
-## Demo Credentials (after seeding)
+## 📄 Documentation Sitemap
 
-| Role        | Email                          | Password         |
-|-------------|--------------------------------|------------------|
-| Super Admin | admin@saasplatform.com         | Admin@1234       |
-| Reseller 1  | ravi@techsolutions.com         | Reseller@1234    |
-| Reseller 2  | priya@cloudventures.com        | Reseller@1234    |
-| Reseller 3  | anil@digitaledge.com           | Reseller@1234    |
-| Customer    | anjali@example.com             | Customer@1234    |
+- [cPanel Deployment & Installer Guide](./CPANEL_DEPLOYMENT_GUIDE.md)
+- [Production Release Checklist](./RELEASE_CHECKLIST.md)
+- [Developer API & Webhook Guide](./frontend/src/pages/reseller/DeveloperPage.tsx)
 
 ---
 
-## Key Architectural Decisions
+## 📜 License
 
-### Role-Aware Pricing
-Pricing is computed **server-side** on every request — never trusted from the frontend.
-
-| Role     | Sees                                              |
-|----------|---------------------------------------------------|
-| Admin    | cost_price, reseller_price, customer_price, margins |
-| Reseller | your_price, customer_price, your_profit           |
-| Customer | price only                                        |
-
-The mapping is enforced in `PricingService` and applied in API Resources. Cost price never appears in reseller or customer responses.
-
-### Tenant Isolation
-Every model that belongs to a reseller org has `organization_id`. The `TenantScope` global Eloquent scope auto-applies `WHERE organization_id = ?` for all non-admin users. Super Admins bypass it via `withoutTenantScope()`. Policies provide defense-in-depth.
-
-### Atomic Wallet
-Every balance mutation runs inside `DB::transaction()` with `SELECT ... FOR UPDATE` row locking. Ledger rows (`wallet_transactions`) are immutable — corrections are new `reversal`/`refund` rows. Idempotency keys prevent double-credit on webhook replay.
-
-### Idempotent Webhooks
-```
-receive → verify signature → INSERT webhook_events(event_id UNIQUE)
-  → duplicate? → ack 200, stop
-  → new? → run business logic inside DB transaction → mark processed
-```
-
-### Price Snapshots
-`order_items` stores `cost_price_at_purchase`, `reseller_price_at_purchase`, `customer_price_at_purchase` at order time. Profit reports always read from these snapshots, never from live `prices` table — guaranteeing historical accuracy even when prices change.
-
----
-
-## API Reference
-
-Base URL: `http://localhost:8000/api/v1`
-
-All protected endpoints require: `Authorization: Bearer {token}`
-
-### Auth
-| Method | Endpoint                         | Description               |
-|--------|----------------------------------|---------------------------|
-| POST   | /auth/register                   | Create account            |
-| POST   | /auth/login                      | Login, returns token      |
-| POST   | /auth/logout                     | Invalidate current token  |
-| GET    | /auth/me                         | Authenticated user info   |
-| POST   | /auth/forgot-password            | Send reset link           |
-| POST   | /auth/reset-password             | Reset password            |
-
-### Marketplace (public + role-aware)
-| Method | Endpoint                         | Description               |
-|--------|----------------------------------|---------------------------|
-| GET    | /marketplace                     | Homepage (banners, featured) |
-| GET    | /marketplace/products            | Product listing           |
-| GET    | /marketplace/products/{slug}     | Product detail            |
-| GET    | /marketplace/services            | Service listing           |
-| GET    | /marketplace/services/{slug}     | Service detail            |
-
-### Reseller (`role:RESELLER`)
-| Method | Endpoint                         | Description               |
-|--------|----------------------------------|---------------------------|
-| GET    | /reseller/wallet                 | Wallet balance            |
-| GET    | /reseller/wallet/transactions    | Transaction ledger        |
-| POST   | /reseller/wallet/recharge        | Initiate recharge         |
-| GET    | /reseller/customers              | Customer list             |
-| POST   | /reseller/customers              | Add customer              |
-| GET    | /reseller/orders                 | Orders for org            |
-| GET    | /reseller/profit                 | Profit breakdown          |
-
-### Admin (`role:SUPER_ADMIN`)
-| Method | Endpoint                         | Description               |
-|--------|----------------------------------|---------------------------|
-| GET    | /admin/dashboard                 | Platform KPIs             |
-| GET/POST/PUT/DELETE | /admin/products       | Product CRUD              |
-| GET/POST/PUT/DELETE | /admin/services       | Service CRUD              |
-| GET    | /admin/wallets                   | All org wallets           |
-| POST   | /admin/wallets/{orgId}/adjust    | Manual wallet adjustment  |
-| GET    | /admin/profits                   | Platform profit records   |
-| GET    | /admin/reports/revenue           | Revenue report            |
-| GET    | /admin/audit-logs                | Audit trail               |
-
-### Webhooks (no auth — signature verified internally)
-| Method | Endpoint                         | Description               |
-|--------|----------------------------------|---------------------------|
-| POST   | /webhooks/razorpay               | Razorpay events           |
-| POST   | /webhooks/phonepe                | PhonePe events            |
-
----
-
-## Running Tests
-
-```bash
-docker-compose exec app php artisan test
-# or with Pest directly:
-docker-compose exec app ./vendor/bin/pest --coverage
-```
-
-Tests cover:
-- Authentication (register, login, logout, token invalidation)
-- RBAC (role access enforcement)
-- Tenant isolation (cross-org data leakage prevention)
-- Pricing visibility (cost never exposed to customer/reseller)
-- Wallet operations (credit, debit, insufficient balance, idempotency, immutability)
-- Pricing engine (fixed, percentage, tier)
-
----
-
-## Build Phases
-
-| Phase | Status      | Scope |
-|-------|-------------|-------|
-| 1     | ✅ Complete | Auth, RBAC, tenant isolation, pricing engine, wallet engine, base API, frontend shell |
-| 2     | 🔄 Next     | Full marketplace, product/service CRUD, category management |
-| 3     | ⏳ Pending  | Full order flow, checkout, reseller customer management |
-| 4     | ⏳ Pending  | Subscriptions, auto-renewal, retry logic, grace periods |
-| 5     | ⏳ Pending  | Payment gateway integration (Razorpay, PhonePe, Cashfree) |
-| 6     | ⏳ Pending  | Offers, coupons, advertisements, reports |
-| 7     | ⏳ Pending  | White label, support tickets, audit log viewer, settings UI |
-| 8     | ⏳ Pending  | UI polish, performance, deployment hardening |
-
----
-
-## Environment Variables
-
-See `backend/.env.example` for the full list. Critical variables:
-
-```env
-# Database
-DB_CONNECTION=pgsql
-DB_DATABASE=saas_platform
-DB_USERNAME=saas_user
-DB_PASSWORD=secret
-
-# Redis
-REDIS_PASSWORD=redis_secret
-
-# Payment Gateways (never commit these)
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
-RAZORPAY_WEBHOOK_SECRET=
-```
-
-**Never commit `.env`, API keys, or webhook secrets to git.**
-
----
-
-## Git Workflow
-
-```bash
-git commit -m "feat(auth): registration, login, email verification, sanctum tokens"
-git commit -m "feat(pricing): role-aware pricing service with tier and custom price support"
-git commit -m "feat(wallet): atomic wallet engine with idempotency and immutable ledger"
-git commit -m "feat(marketplace): product/service listing with role-filtered pricing"
-git commit -m "feat(subscriptions): renewal scheduler, grace period, suspension state machine"
-git commit -m "fix(wallet): prevent race condition on concurrent debit requests"
-```
-
----
-
-## Security Notes
-
-1. **Backend is authoritative** — prices, roles, org IDs are never accepted from frontend input
-2. **Webhook signatures verified** before any payload is processed
-3. **Wallet mutations** use `SELECT FOR UPDATE` + DB transactions — no optimistic locking
-4. **Idempotency keys** are unique-constrained at DB level, not just checked in application code
-5. **Tenant scope** applies as Eloquent global scope — not just controller filters
-6. **Audit log** records all pricing changes, wallet adjustments, and admin actions
+This project is open-source under the [MIT License](LICENSE).
