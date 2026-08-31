@@ -1,0 +1,24 @@
+# cPanel / LiteSpeed Root .htaccess
+# Serves Compiled Frontend Single-Page App & Routes /api to Laravel Backend Entrypoint
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Handle Authorization Header for API requests
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Route /api Requests to backend/public/index.php
+    RewriteCond %{REQUEST_URI} ^/api/
+    RewriteRule ^api/(.*)$ backend/public/index.php [L,QSA]
+
+    # Serve Static Build Files if they exist in frontend/dist/
+    RewriteCond %{DOCUMENT_ROOT}/frontend/dist%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ frontend/dist/$1 [L]
+
+    # SPA Fallback for UI Routes (/install, /login, /admin, /reseller, etc.)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ frontend/dist/index.html [L]
+</IfModule>
