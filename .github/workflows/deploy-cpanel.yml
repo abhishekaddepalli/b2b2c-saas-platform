@@ -1,0 +1,54 @@
+name: Deploy B2B2C SaaS Platform to cPanel
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_mysql, xml, ctype, json, bcmath, curl, fileinfo
+
+      - name: Install Backend Composer Dependencies
+        run: |
+          cd backend
+          composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Setup Node.js & Build Frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compile React Production Bundle
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Prepare cPanel Deployment Directory
+        run: |
+          mkdir -p deploy_package
+          cp -r backend/* deploy_package/
+          cp -r frontend/dist/* deploy_package/public/
+
+      - name: Deploy to cPanel via FTP / SFTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          server-dir: public_html/
+          local-dir: ./deploy_package/
