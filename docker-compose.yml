@@ -1,0 +1,101 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saas_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+      - ./backend/storage:/var/www/storage
+    environment:
+      - PHP_OPCACHE_ENABLE=0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - saas_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: saas_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - saas_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: saas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-saas_platform}
+      POSTGRES_USER: ${DB_USERNAME:-saas_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - saas_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - saas_network
+
+  queue_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saas_queue_worker
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - ./backend:/var/www
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - saas_network
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saas_scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction & sleep 60; done"
+    volumes:
+      - ./backend:/var/www
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - saas_network
+
+networks:
+  saas_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
