@@ -26,7 +26,10 @@ class InstallerController extends Controller
         $phpVersion = PHP_VERSION;
         $phpPassed = version_compare($phpVersion, '8.2.0', '>=');
 
-        $hasPdoMysql = extension_loaded('pdo_mysql') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true));
+        $hasPdoMysql = extension_loaded('pdo_mysql')
+            || extension_loaded('nd_pdo_mysql')
+            || extension_loaded('mysqlnd')
+            || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true));
 
         $requiredExtensions = [
             'openssl', 'pdo', 'mbstring', 'tokenizer', 'xml', 'ctype', 'json', 'bcmath', 'curl', 'fileinfo'
@@ -86,7 +89,7 @@ class InstallerController extends Controller
 
         $requiredDriverExt = $request->db_driver === 'mysql' ? 'pdo_mysql' : 'pdo_pgsql';
         $driverAvailable = $request->db_driver === 'mysql'
-            ? (extension_loaded('pdo_mysql') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true)))
+            ? (extension_loaded('pdo_mysql') || extension_loaded('nd_pdo_mysql') || extension_loaded('mysqlnd') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true)))
             : (extension_loaded('pdo_pgsql') || (class_exists('PDO') && in_array('pgsql', \PDO::getAvailableDrivers(), true)));
 
         if (!$driverAvailable) {
