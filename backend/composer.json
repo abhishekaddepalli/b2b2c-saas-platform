@@ -5,7 +5,7 @@
     "keywords": ["saas", "marketplace", "b2b2c"],
     "license": "proprietary",
     "require": {
-        "php": "^8.4",
+        "php": "^8.2",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10",
@@ -61,6 +61,7 @@
         }
     },
     "config": {
+        "platform-check": false,
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
