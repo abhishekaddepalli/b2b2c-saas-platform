@@ -1,14 +1,10 @@
 # cPanel / LiteSpeed Root .htaccess
 # Serves Compiled Frontend Single-Page App & Routes /api to Laravel Backend Entrypoint
 
-<FilesMatch "\.(php|php8|phtml)$">
-    SetHandler application/x-httpd-alt-php83___lsphp
-</FilesMatch>
-
-<IfModule mime_module>
-    AddHandler application/x-httpd-alt-php83___lsphp .php
-    AddHandler application/x-httpd-ea-php83 .php
-</IfModule>
+# Force PHP 8.3 LiteSpeed Handler for all API requests and rewrites
+SetHandler application/x-httpd-alt-php83___lsphp
+AddHandler application/x-httpd-alt-php83___lsphp .php
+AddHandler application/x-httpd-ea-php83 .php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
