@@ -1,7 +1,10 @@
-# Force PHP 8.3 LiteSpeed Handler for all API requests
-SetHandler application/x-httpd-alt-php83___lsphp
-AddHandler application/x-httpd-alt-php83___lsphp .php
-AddHandler application/x-httpd-ea-php83 .php
+<IfModule mime_module>
+    AddHandler application/x-httpd-alt-php83___lsphp .php .phtml .php8
+</IfModule>
+
+<FilesMatch "\.(php|phtml)$">
+    SetHandler application/x-httpd-alt-php83___lsphp
+</FilesMatch>
 
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
