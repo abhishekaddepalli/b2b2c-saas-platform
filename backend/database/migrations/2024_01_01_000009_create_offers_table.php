@@ -65,7 +65,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('offer_id')->references('id')->on('offers')->cascadeOnDelete();
-            $table->unique(['offer_id', 'eligibility_type', 'eligibility_id']);
+            $table->unique(['offer_id', 'eligibility_type', 'eligibility_id'], 'uq_offer_elig_type_id');
             $table->index(['eligibility_type', 'eligibility_id']);
         });
 
