@@ -119,6 +119,7 @@ class InstallerController extends Controller
                 'message' => 'Database connection successful!',
             ]);
         } catch (\Throwable $e) {
+            $drivers = class_exists('PDO') ? implode(', ', \PDO::getAvailableDrivers()) : 'none';
             if ($request->db_driver === 'mysql' && function_exists('mysqli_connect')) {
                 try {
                     $conn = @mysqli_connect($request->db_host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
@@ -136,7 +137,7 @@ class InstallerController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Database Connection Failed: ' . $e->getMessage(),
+                'message' => 'Database Connection Failed: ' . $e->getMessage() . " (Loaded PDO Drivers: {$drivers})",
             ], 422);
         }
     }

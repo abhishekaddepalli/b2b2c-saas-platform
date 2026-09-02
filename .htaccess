@@ -1,6 +1,11 @@
 # cPanel / LiteSpeed Root .htaccess
 # Serves Compiled Frontend Single-Page App & Routes /api to Laravel Backend Entrypoint
 
+<IfModule mime_module>
+    AddHandler application/x-httpd-alt-php83___lsphp .php
+    AddHandler application/x-httpd-ea-php83 .php
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
