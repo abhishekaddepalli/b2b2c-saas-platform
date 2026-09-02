@@ -100,27 +100,40 @@ class InstallerController extends Controller
         }
 
         try {
-            $connectionName = 'test_install_db';
-            config([
-                "database.connections.{$connectionName}" => [
-                    'driver' => $request->db_driver,
-                    'host' => $request->db_host,
-                    'port' => $request->db_port,
-                    'database' => $request->db_name,
-                    'username' => $request->db_user,
-                    'password' => $request->db_pass ?? '',
-                    'charset' => 'utf8mb4',
-                    'prefix' => '',
-                ]
-            ]);
-
-            DB::connection($connectionName)->getPdo();
+            if ($request->db_driver === 'mysql') {
+                $dsn = "mysql:host={$request->db_host};port={$request->db_port};dbname={$request->db_name};charset=utf8mb4";
+                $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_TIMEOUT => 5,
+                ]);
+            } else {
+                $dsn = "pgsql:host={$request->db_host};port={$request->db_port};dbname={$request->db_name}";
+                $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_TIMEOUT => 5,
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Database connection successful!',
             ]);
         } catch (\Throwable $e) {
+            if ($request->db_driver === 'mysql' && function_exists('mysqli_connect')) {
+                try {
+                    $conn = @mysqli_connect($request->db_host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
+                    if ($conn) {
+                        mysqli_close($conn);
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Database connection successful (via MySQL connection driver)!',
+                        ]);
+                    }
+                } catch (\Throwable $mEx) {
+                    // Fallthrough
+                }
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Database Connection Failed: ' . $e->getMessage(),
