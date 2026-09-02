@@ -21,6 +21,10 @@
     RewriteCond %{REQUEST_URI} ^/api/
     RewriteRule ^api/(.*)$ backend/public/index.php [L,QSA]
 
+    # Route /install_api.php to backend/public/install_api.php
+    RewriteCond %{REQUEST_URI} ^/install_api.php
+    RewriteRule ^install_api.php$ backend/public/install_api.php [L,QSA]
+
     # Route /check_pdo.php to backend/public/check_pdo.php
     RewriteCond %{REQUEST_URI} ^/check_pdo.php
     RewriteRule ^check_pdo.php$ backend/public/check_pdo.php [L,QSA]

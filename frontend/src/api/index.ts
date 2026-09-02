@@ -218,8 +218,8 @@ export const saasPlansApi = {
 };
 
 export const installerApi = {
-  status: () => api.get('/install/status'),
-  requirements: () => api.get('/install/requirements'),
-  testDb: (data: object) => api.post('/install/test-db', data),
-  execute: (data: object) => api.post('/install/execute', data),
+  status: () => api.get('/install_api.php?action=status'),
+  requirements: () => api.get('/install_api.php?action=requirements'),
+  testDb: (data: object) => api.post('/install_api.php?action=test-db', data),
+  execute: (data: object) => api.post('/install_api.php?action=execute', data),
 };
