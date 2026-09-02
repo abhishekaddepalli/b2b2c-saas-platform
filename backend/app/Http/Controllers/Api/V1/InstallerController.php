@@ -121,13 +121,9 @@ class InstallerController extends Controller
                 'message' => 'Database connection successful!',
             ]);
         } catch (\Throwable $e) {
-            $msg = $e->getMessage();
-            if (str_contains($msg, 'could not find driver')) {
-                $msg = "PHP extension '{$requiredDriverExt}' is missing. Turn on '{$requiredDriverExt}' in cPanel -> Select PHP Version.";
-            }
             return response()->json([
                 'success' => false,
-                'message' => 'Database Connection Failed: ' . $msg,
+                'message' => 'Database Connection Failed: ' . $e->getMessage(),
             ], 422);
         }
     }
