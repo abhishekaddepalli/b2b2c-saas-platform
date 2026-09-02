@@ -1,7 +1,15 @@
 import axios, { AxiosError, type AxiosResponse } from 'axios';
 
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/v1`;
+  }
+  return '/api/v1';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1',
+  baseURL: getBaseUrl(),
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
   withCredentials: false,
 });

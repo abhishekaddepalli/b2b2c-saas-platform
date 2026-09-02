@@ -99,51 +99,58 @@ class InstallerController extends Controller
             ], 422);
         }
 
-        try {
-            if ($request->db_driver === 'mysql') {
-                $dsn = "mysql:host={$request->db_host};port={$request->db_port};dbname={$request->db_name};charset=utf8mb4";
-                $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
-                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                    \PDO::ATTR_TIMEOUT => 5,
-                ]);
-            } else {
-                $dsn = "pgsql:host={$request->db_host};port={$request->db_port};dbname={$request->db_name}";
-                $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
-                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                    \PDO::ATTR_TIMEOUT => 5,
-                ]);
-            }
+        $hostsToTry = [$request->db_host];
+        if ($request->db_host === 'localhost') {
+            $hostsToTry[] = '127.0.0.1';
+        } elseif ($request->db_host === '127.0.0.1') {
+            $hostsToTry[] = 'localhost';
+        }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Database connection successful!',
-            ]);
-        } catch (\Throwable $e) {
-            $drivers = class_exists('PDO') ? implode(', ', \PDO::getAvailableDrivers()) : 'none';
-            if ($request->db_driver === 'mysql' && function_exists('mysqli_connect')) {
-                $conn = @mysqli_connect($request->db_host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
-                if ($conn) {
-                    mysqli_close($conn);
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Database connection successful!',
+        $lastError = '';
+        foreach ($hostsToTry as $host) {
+            try {
+                if ($request->db_driver === 'mysql') {
+                    $dsn = "mysql:host={$host};port={$request->db_port};dbname={$request->db_name};charset=utf8mb4";
+                    $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
+                        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                        \PDO::ATTR_TIMEOUT => 5,
+                    ]);
+                } else {
+                    $dsn = "pgsql:host={$host};port={$request->db_port};dbname={$request->db_name}";
+                    $pdo = new \PDO($dsn, $request->db_user, $request->db_pass ?? '', [
+                        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                        \PDO::ATTR_TIMEOUT => 5,
                     ]);
                 }
-                
-                $mErr = mysqli_connect_error();
-                if ($mErr) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Database Connection Failed: ' . $mErr,
-                    ], 422);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Database connection successful!',
+                ]);
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+                if ($request->db_driver === 'mysql' && function_exists('mysqli_connect')) {
+                    $conn = @mysqli_connect($host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
+                    if ($conn) {
+                        mysqli_close($conn);
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Database connection successful!',
+                        ]);
+                    }
+                    $mErr = mysqli_connect_error();
+                    if ($mErr) {
+                        $lastError = $mErr;
+                    }
                 }
             }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Database Connection Failed: ' . $e->getMessage() . " (Loaded PDO Drivers: {$drivers})",
-            ], 422);
         }
+
+        $drivers = class_exists('PDO') ? implode(', ', \PDO::getAvailableDrivers()) : 'none';
+        return response()->json([
+            'success' => false,
+            'message' => 'Database Connection Failed: ' . $lastError . " (Active PDO Drivers: {$drivers})",
+        ], 422);
     }
 
     public function executeInstall(Request $request): JsonResponse
