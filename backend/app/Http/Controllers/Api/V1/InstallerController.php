@@ -26,14 +26,17 @@ class InstallerController extends Controller
         $phpVersion = PHP_VERSION;
         $phpPassed = version_compare($phpVersion, '8.2.0', '>=');
 
+        $hasPdoMysql = extension_loaded('pdo_mysql') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true));
+
         $requiredExtensions = [
-            'openssl', 'pdo', 'pdo_mysql', 'mbstring', 'tokenizer', 'xml', 'ctype', 'json', 'bcmath', 'curl', 'fileinfo'
+            'openssl', 'pdo', 'mbstring', 'tokenizer', 'xml', 'ctype', 'json', 'bcmath', 'curl', 'fileinfo'
         ];
 
         $extensions = [];
         foreach ($requiredExtensions as $ext) {
             $extensions[$ext] = extension_loaded($ext);
         }
+        $extensions['pdo_mysql'] = $hasPdoMysql;
 
         // Ensure storage subdirectories exist
         $storageDirs = [
@@ -82,7 +85,11 @@ class InstallerController extends Controller
         ]);
 
         $requiredDriverExt = $request->db_driver === 'mysql' ? 'pdo_mysql' : 'pdo_pgsql';
-        if (!extension_loaded($requiredDriverExt)) {
+        $driverAvailable = $request->db_driver === 'mysql'
+            ? (extension_loaded('pdo_mysql') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true)))
+            : (extension_loaded('pdo_pgsql') || (class_exists('PDO') && in_array('pgsql', \PDO::getAvailableDrivers(), true)));
+
+        if (!$driverAvailable) {
             return response()->json([
                 'success' => false,
                 'message' => "The PHP extension '{$requiredDriverExt}' is disabled in cPanel. Enable '{$requiredDriverExt}' under cPanel -> Select PHP Version -> Extensions.",
