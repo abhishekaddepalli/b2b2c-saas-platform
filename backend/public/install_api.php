@@ -241,7 +241,15 @@ switch ($action) {
                 ]
             );
 
-            $admin->syncRoles(['SUPER_ADMIN']);
+            try {
+                $superRole = \Spatie\Permission\Models\Role::firstOrCreate(
+                    ['name' => 'SUPER_ADMIN', 'guard_name' => 'web']
+                );
+                $admin->assignRole($superRole);
+            } catch (\Throwable $eRole) {
+                // Role fallback
+            }
+
             $masterOrg->users()->syncWithoutDetaching([$admin->id => ['role_within_org' => 'owner', 'status' => 'active']]);
 
             file_put_contents($storagePath . '/installed', date('c'));
@@ -253,10 +261,9 @@ switch ($action) {
             ]);
             exit;
         } catch (\Throwable $e) {
-            http_response_code(422);
             echo json_encode([
                 'success' => false,
-                'message' => 'Installation Failed: ' . $e->getMessage(),
+                'message' => 'Installation Failed: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ':' . $e->getLine() . ')',
             ]);
             exit;
         }

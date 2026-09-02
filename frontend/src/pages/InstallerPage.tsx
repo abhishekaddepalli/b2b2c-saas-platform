@@ -85,13 +85,20 @@ export default function InstallerPage() {
       admin_password: adminPassword,
       org_name: orgName,
     }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       setInstalling(false);
-      setStep(5);
+      if (res.data?.success) {
+        setStep(5);
+      } else {
+        setInstallError(res.data?.message || 'Installation execution failed.');
+      }
     },
     onError: (err: any) => {
       setInstalling(false);
-      setInstallError(err.response?.data?.message || 'Installation execution failed.');
+      const msg = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || err.message || 'Installation execution failed.');
+      setInstallError(msg);
     },
   });
 
@@ -528,12 +535,26 @@ export default function InstallerPage() {
                 <div>Installer Status: Locked (storage/installed created)</div>
               </div>
 
-              <a
-                href="/login"
-                className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-6 py-3 rounded-xl transition-colors shadow-md"
-              >
-                Launch Admin Login <ArrowRight className="w-4 h-4" />
-              </a>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <a
+                  href="/"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-5 py-3 rounded-xl transition-colors shadow-md"
+                >
+                  Launch Platform Home <ArrowRight className="w-4 h-4" />
+                </a>
+                <a
+                  href="/login"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-5 py-3 rounded-xl transition-colors shadow-md"
+                >
+                  Super Admin Login <ArrowRight className="w-4 h-4" />
+                </a>
+                <a
+                  href="/reseller"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-5 py-3 rounded-xl transition-colors shadow-md"
+                >
+                  Reseller Portal <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
             </div>
           )}
         </div>
