@@ -35,6 +35,24 @@ class InstallerController extends Controller
             $extensions[$ext] = extension_loaded($ext);
         }
 
+        // Ensure storage subdirectories exist
+        $storageDirs = [
+            storage_path('app'),
+            storage_path('app/public'),
+            storage_path('framework'),
+            storage_path('framework/cache'),
+            storage_path('framework/sessions'),
+            storage_path('framework/views'),
+            storage_path('logs'),
+            base_path('bootstrap/cache'),
+        ];
+
+        foreach ($storageDirs as $dir) {
+            if (!file_exists($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+        }
+
         $permissions = [
             'storage/app' => is_writable(storage_path('app')),
             'storage/framework' => is_writable(storage_path('framework')),
