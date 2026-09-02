@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Pure Standalone Web Installer API (Backend Entrypoint)
+ * Pure Standalone Web Installer API (Root Entrypoint)
  * Direct 1-click execution under active PHP version (PHP 8.3)
  */
 
@@ -14,7 +14,11 @@ $inputRaw = file_get_contents('php://input');
 $body = json_decode($inputRaw, true) ?? [];
 $params = array_merge($_REQUEST, $body);
 
-$basePath = dirname(__DIR__);
+$basePath = __DIR__ . '/backend';
+if (!file_exists($basePath)) {
+    $basePath = __DIR__;
+}
+
 $storagePath = $basePath . '/storage';
 
 switch ($action) {
