@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/spideclo/resell.infiniforge.cloud
+    - /bin/cp -R * $DEPLOYPATH
