@@ -180,12 +180,41 @@ switch ($action) {
             file_put_contents($envPath, $envContent);
 
             // Boot Laravel for Artisan Migrations & Admin Provisioning
-            define('LARAVEL_START', microtime(true));
+            if (!defined('LARAVEL_START')) {
+                define('LARAVEL_START', microtime(true));
+            }
+
             require $basePath . '/vendor/autoload.php';
             $app = require_once $basePath . '/bootstrap/app.php';
 
             $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
             $kernel->bootstrap();
+
+            $dbDriver = $params['db_driver'] ?? 'mysql';
+            $dbHost = $params['db_host'] ?? 'localhost';
+            $dbPort = $params['db_port'] ?? '3306';
+            $dbName = $params['db_name'] ?? '';
+            $dbUser = $params['db_user'] ?? '';
+            $dbPass = $params['db_pass'] ?? '';
+
+            config([
+                'app.name' => $params['app_name'] ?? 'Commercial SaaS Platform',
+                'app.url' => $params['app_url'] ?? 'http://localhost',
+                'database.default' => $dbDriver,
+                "database.connections.{$dbDriver}" => [
+                    'driver' => $dbDriver,
+                    'host' => $dbHost,
+                    'port' => $dbPort,
+                    'database' => $dbName,
+                    'username' => $dbUser,
+                    'password' => $dbPass,
+                    'charset' => 'utf8mb4',
+                    'prefix' => '',
+                ]
+            ]);
+
+            \Illuminate\Support\Facades\DB::purge();
+            \Illuminate\Support\Facades\DB::reconnect();
 
             \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
             \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true]);
@@ -219,10 +248,10 @@ switch ($action) {
             ]);
             exit;
         } catch (\Throwable $e) {
-            http_response_code(500);
+            http_response_code(422);
             echo json_encode([
                 'success' => false,
-                'message' => 'Installation Execution Failed: ' . $e->getMessage(),
+                'message' => 'Installation Failed: ' . $e->getMessage(),
             ]);
             exit;
         }
