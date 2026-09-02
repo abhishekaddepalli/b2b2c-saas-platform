@@ -13,6 +13,10 @@
     RewriteCond %{REQUEST_URI} ^/api/
     RewriteRule ^api/(.*)$ backend/public/index.php [L,QSA]
 
+    # Route /check_pdo.php to backend/public/check_pdo.php
+    RewriteCond %{REQUEST_URI} ^/check_pdo.php
+    RewriteRule ^check_pdo.php$ backend/public/check_pdo.php [L,QSA]
+
     # Serve Static Build Files if they exist in frontend/dist/
     RewriteCond %{DOCUMENT_ROOT}/frontend/dist%{REQUEST_URI} -f
     RewriteRule ^(.*)$ frontend/dist/$1 [L]
