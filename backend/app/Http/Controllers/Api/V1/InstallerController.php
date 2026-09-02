@@ -87,15 +87,17 @@ class InstallerController extends Controller
             'db_pass' => 'nullable|string',
         ]);
 
-        $requiredDriverExt = $request->db_driver === 'mysql' ? 'pdo_mysql' : 'pdo_pgsql';
-        $driverAvailable = $request->db_driver === 'mysql'
-            ? (extension_loaded('pdo_mysql') || extension_loaded('nd_pdo_mysql') || extension_loaded('mysqlnd') || (class_exists('PDO') && in_array('mysql', \PDO::getAvailableDrivers(), true)))
-            : (extension_loaded('pdo_pgsql') || (class_exists('PDO') && in_array('pgsql', \PDO::getAvailableDrivers(), true)));
+        $drivers = class_exists('PDO') ? \PDO::getAvailableDrivers() : [];
+        $pdoMysqlLoaded = extension_loaded('pdo_mysql');
+        $ndPdoMysqlLoaded = extension_loaded('nd_pdo_mysql');
+        $mysqlndLoaded = extension_loaded('mysqlnd');
+        $phpVer = PHP_VERSION;
+        $ini = php_ini_loaded_file();
 
-        if (!$driverAvailable) {
+        if ($request->db_driver === 'mysql' && !in_array('mysql', $drivers, true)) {
             return response()->json([
                 'success' => false,
-                'message' => "The PHP extension '{$requiredDriverExt}' is disabled in cPanel. Enable '{$requiredDriverExt}' under cPanel -> Select PHP Version -> Extensions.",
+                'message' => "PHP {$phpVer} (INI: {$ini}) | pdo_mysql: " . ($pdoMysqlLoaded ? 'yes' : 'no') . " | nd_pdo_mysql: " . ($ndPdoMysqlLoaded ? 'yes' : 'no') . " | Drivers: " . implode(', ', $drivers),
             ], 422);
         }
 
