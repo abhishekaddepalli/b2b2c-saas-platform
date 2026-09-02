@@ -179,7 +179,7 @@ switch ($action) {
             }
             file_put_contents($envPath, $envContent);
 
-            // Boot Laravel for Artisan Migrations & Admin Provisioning
+            // Boot Laravel Console Kernel for Artisan Migrations & Admin Provisioning
             if (!defined('LARAVEL_START')) {
                 define('LARAVEL_START', microtime(true));
             }
@@ -187,8 +187,8 @@ switch ($action) {
             require $basePath . '/vendor/autoload.php';
             $app = require_once $basePath . '/bootstrap/app.php';
 
-            $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-            $kernel->bootstrap();
+            $console = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+            $console->bootstrap();
 
             $dbDriver = $params['db_driver'] ?? 'mysql';
             $dbHost = $params['db_host'] ?? 'localhost';
@@ -216,7 +216,12 @@ switch ($action) {
             \Illuminate\Support\Facades\DB::purge();
             \Illuminate\Support\Facades\DB::reconnect();
 
-            \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
+            try {
+                \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
+            } catch (\Throwable $eKey) {
+                // Key generate fallback
+            }
+
             \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true]);
             \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
 
