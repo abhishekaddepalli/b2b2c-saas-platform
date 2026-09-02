@@ -11,13 +11,12 @@ require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-
 $request = Illuminate\Http\Request::capture();
+$kernel->handle($request);
+
 $action = $request->input('action') ?? $request->query('action');
 
 $controller = new \App\Http\Controllers\Api\V1\InstallerController();
-
-header('Content-Type: application/json');
 
 try {
     switch ($action) {
@@ -38,8 +37,10 @@ try {
             break;
     }
 
-    $response->send();
+    header('Content-Type: application/json');
+    echo $response->getContent();
 } catch (\Throwable $e) {
+    header('Content-Type: application/json');
     echo json_encode([
         'success' => false,
         'message' => 'Installer API Error: ' . $e->getMessage(),
