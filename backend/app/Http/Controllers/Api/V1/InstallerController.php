@@ -121,17 +121,21 @@ class InstallerController extends Controller
         } catch (\Throwable $e) {
             $drivers = class_exists('PDO') ? implode(', ', \PDO::getAvailableDrivers()) : 'none';
             if ($request->db_driver === 'mysql' && function_exists('mysqli_connect')) {
-                try {
-                    $conn = @mysqli_connect($request->db_host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
-                    if ($conn) {
-                        mysqli_close($conn);
-                        return response()->json([
-                            'success' => true,
-                            'message' => 'Database connection successful (via MySQL connection driver)!',
-                        ]);
-                    }
-                } catch (\Throwable $mEx) {
-                    // Fallthrough
+                $conn = @mysqli_connect($request->db_host, $request->db_user, $request->db_pass ?? '', $request->db_name, (int)$request->db_port);
+                if ($conn) {
+                    mysqli_close($conn);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Database connection successful!',
+                    ]);
+                }
+                
+                $mErr = mysqli_connect_error();
+                if ($mErr) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Database Connection Failed: ' . $mErr,
+                    ], 422);
                 }
             }
 
