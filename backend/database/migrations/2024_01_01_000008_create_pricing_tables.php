@@ -72,7 +72,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->foreign('created_by')->references('id')->on('users');
-            $table->index(['priceable_type', 'priceable_id', 'scope_type', 'scope_id']);
+            $table->index(['priceable_type', 'priceable_id', 'scope_type', 'scope_id'], 'idx_custom_prices_scope');
         });
     }
 
