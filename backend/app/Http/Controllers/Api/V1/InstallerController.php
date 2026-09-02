@@ -27,7 +27,7 @@ class InstallerController extends Controller
         $phpPassed = version_compare($phpVersion, '8.2.0', '>=');
 
         $requiredExtensions = [
-            'openssl', 'pdo', 'mbstring', 'tokenizer', 'xml', 'ctype', 'json', 'bcmath', 'curl', 'fileinfo'
+            'openssl', 'pdo', 'pdo_mysql', 'mbstring', 'tokenizer', 'xml', 'ctype', 'json', 'bcmath', 'curl', 'fileinfo'
         ];
 
         $extensions = [];
@@ -81,6 +81,14 @@ class InstallerController extends Controller
             'db_pass' => 'nullable|string',
         ]);
 
+        $requiredDriverExt = $request->db_driver === 'mysql' ? 'pdo_mysql' : 'pdo_pgsql';
+        if (!extension_loaded($requiredDriverExt)) {
+            return response()->json([
+                'success' => false,
+                'message' => "The PHP extension '{$requiredDriverExt}' is disabled in cPanel. Enable '{$requiredDriverExt}' under cPanel -> Select PHP Version -> Extensions.",
+            ], 422);
+        }
+
         try {
             $connectionName = 'test_install_db';
             config([
@@ -103,9 +111,13 @@ class InstallerController extends Controller
                 'message' => 'Database connection successful!',
             ]);
         } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'could not find driver')) {
+                $msg = "PHP extension '{$requiredDriverExt}' is missing. Turn on '{$requiredDriverExt}' in cPanel -> Select PHP Version.";
+            }
             return response()->json([
                 'success' => false,
-                'message' => 'Database Connection Failed: ' . $e->getMessage(),
+                'message' => 'Database Connection Failed: ' . $msg,
             ], 422);
         }
     }
