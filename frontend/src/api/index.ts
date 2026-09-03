@@ -15,12 +15,13 @@ const api = axios.create({
   withCredentials: false,
 });
 
-// Attach Bearer token from localStorage
+// Attach Bearer token from localStorage across headers and query params
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     config.headers['X-Auth-Token'] = token;
+    config.params = { ...config.params, auth_token: token };
   }
   return config;
 });
@@ -29,11 +30,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = '/login?expired=1';
+    // Only redirect if initial /auth/me fails when completely unauthenticated
+    if (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) {
+      if (!localStorage.getItem('user')) {
+        localStorage.removeItem('auth_token');
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login?expired=1';
+        }
       }
     }
     return Promise.reject(error);
