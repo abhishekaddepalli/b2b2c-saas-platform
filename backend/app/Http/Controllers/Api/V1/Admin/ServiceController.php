@@ -47,6 +47,7 @@ class ServiceController extends Controller
             'status' => ['nullable', 'in:active,draft,archived'],
             'visibility' => ['nullable', 'in:public,reseller_only,hidden'],
             'billing_interval' => ['nullable', 'string'],
+            'image_url' => ['nullable', 'string'],
         ]);
 
         $slug = $request->filled('slug')
@@ -54,12 +55,15 @@ class ServiceController extends Controller
             : Str::slug($request->name) . '-' . Str::random(4);
 
         return DB::transaction(function () use ($request, $slug) {
+            $icon = $request->image_url ?? $request->icon;
+
             $service = Service::create([
                 'name' => $request->name,
                 'slug' => $slug,
                 'category_id' => $request->category_id,
                 'short_description' => $request->short_description,
                 'full_description' => $request->full_description,
+                'icon' => $icon,
                 'status' => $request->status ?? 'active',
                 'visibility' => $request->visibility ?? 'public',
                 'billing_type' => ($request->billing_interval === 'one_time' || $request->billing_type === 'one_time') ? 'one_time' : 'recurring',
@@ -125,37 +129,42 @@ class ServiceController extends Controller
         $service = Service::findOrFail($id);
 
         $data = $request->only([
-            'name', 'short_description', 'full_description', 'visibility',
-            'status', 'category_id', 'billing_type', 'billing_interval', 'featured'
+            'name', 'short_description', 'full_description',
+            'visibility', 'status', 'category_id', 'featured', 'trial_days'
         ]);
+
+        if ($request->filled('image_url') || $request->filled('icon')) {
+            $data['icon'] = $request->image_url ?? $request->icon;
+        }
 
         if ($request->filled('slug')) {
             $data['slug'] = Str::slug($request->slug);
         }
 
+        if ($request->filled('billing_interval')) {
+            $data['billing_interval'] = in_array($request->billing_interval, ['monthly', 'quarterly', 'half_yearly', 'yearly', 'custom'])
+                ? $request->billing_interval
+                : 'monthly';
+            $data['billing_type'] = ($request->billing_interval === 'one_time') ? 'one_time' : 'recurring';
+        }
+
         $service->update($data);
 
-        // Update default plan price if provided
+        // Update default plan pricing if provided
         if ($request->has(['cost_price', 'reseller_price', 'customer_price'])) {
             $plan = $service->plans()->first();
-            if (!$plan) {
-                $plan = $service->plans()->create([
-                    'name' => 'Standard Plan',
-                    'slug' => 'standard-' . Str::random(3),
-                    'status' => 'active',
-                ]);
+            if ($plan) {
+                $plan->prices()->updateOrCreate(
+                    ['pricing_type' => 'fixed'],
+                    [
+                        'cost_price' => (float)$request->cost_price,
+                        'reseller_price' => (float)$request->reseller_price,
+                        'customer_price' => (float)$request->customer_price,
+                        'currency' => 'INR',
+                        'is_active' => true,
+                    ]
+                );
             }
-
-            $plan->prices()->updateOrCreate(
-                ['pricing_type' => 'fixed'],
-                [
-                    'cost_price' => (float)$request->cost_price,
-                    'reseller_price' => (float)$request->reseller_price,
-                    'customer_price' => (float)$request->customer_price,
-                    'currency' => 'INR',
-                    'is_active' => true,
-                ]
-            );
         }
 
         return response()->json([
@@ -164,19 +173,21 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, string $id): JsonResponse
-    {
-        $service = Service::findOrFail($id);
-        $service->update(['status' => $request->status ?? 'active']);
-
-        return response()->json(['message' => 'Service status updated.', 'data' => $service]);
-    }
-
     public function destroy(string $id): JsonResponse
     {
         $service = Service::findOrFail($id);
         $service->delete();
 
-        return response()->json(['message' => 'Service deleted successfully.']);
+        return response()->json(['message' => 'Service plan removed from catalog.']);
+    }
+
+    public function updateStatus(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['status' => ['required', 'in:active,draft,archived']]);
+
+        $service = Service::findOrFail($id);
+        $service->update(['status' => $request->status]);
+
+        return response()->json(['message' => 'Service status updated.', 'data' => $service]);
     }
 }

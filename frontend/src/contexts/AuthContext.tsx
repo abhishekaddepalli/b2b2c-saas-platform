@@ -45,8 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(response.data.data));
       }
     } catch (err: any) {
-      // If error occurs but user was already in localStorage, keep session active
-      if (err?.response?.status === 401 && !localStorage.getItem('user')) {
+      if (err?.response?.status === 401) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
         setToken(null);

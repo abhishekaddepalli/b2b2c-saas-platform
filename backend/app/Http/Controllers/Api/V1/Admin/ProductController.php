@@ -12,7 +12,7 @@ class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with(['prices', 'category:id,name,slug']);
+        $query = Product::with(['prices', 'category:id,name,slug', 'images']);
 
         if ($request->filled('search')) {
             $s = '%' . trim($request->search) . '%';
@@ -47,6 +47,7 @@ class ProductController extends Controller
             'cost_price' => ['required', 'numeric', 'min:0'],
             'reseller_price' => ['required', 'numeric', 'min:0'],
             'customer_price' => ['required', 'numeric', 'min:0'],
+            'image_url' => ['nullable', 'string'],
         ]);
 
         $slug = $request->filled('slug')
@@ -70,6 +71,15 @@ class ProductController extends Controller
             'featured' => $request->boolean('featured', false),
         ]);
 
+        if ($request->filled('image_url')) {
+            $product->images()->create([
+                'path' => $request->image_url,
+                'alt_text' => $product->name,
+                'is_primary' => true,
+                'sort_order' => 0,
+            ]);
+        }
+
         $product->prices()->create([
             'pricing_type' => 'fixed',
             'cost_price' => $request->cost_price,
@@ -81,13 +91,13 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product created with 3-tier wholesale pricing.',
-            'data' => $product->load('prices'),
+            'data' => $product->load(['prices', 'images']),
         ], 201);
     }
 
     public function show(string $id): JsonResponse
     {
-        $product = Product::with(['prices', 'category'])->findOrFail($id);
+        $product = Product::with(['prices', 'category', 'images'])->findOrFail($id);
         return response()->json(['data' => $product]);
     }
 
@@ -106,6 +116,13 @@ class ProductController extends Controller
 
         $product->update($data);
 
+        if ($request->filled('image_url')) {
+            $product->images()->updateOrCreate(
+                ['is_primary' => true],
+                ['path' => $request->image_url, 'alt_text' => $product->name, 'sort_order' => 0]
+            );
+        }
+
         if ($request->has(['cost_price', 'reseller_price', 'customer_price'])) {
             $product->prices()->updateOrCreate(
                 ['pricing_type' => 'fixed'],
@@ -121,16 +138,8 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product updated successfully.',
-            'data' => $product->fresh('prices'),
+            'data' => $product->load(['prices', 'images']),
         ]);
-    }
-
-    public function updateStatus(Request $request, string $id): JsonResponse
-    {
-        $product = Product::findOrFail($id);
-        $product->update(['status' => $request->status ?? 'active']);
-
-        return response()->json(['message' => 'Product status updated.', 'data' => $product]);
     }
 
     public function destroy(string $id): JsonResponse
@@ -139,5 +148,15 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->json(['message' => 'Product deleted successfully.']);
+    }
+
+    public function updateStatus(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['status' => ['required', 'in:draft,active,archived']]);
+
+        $product = Product::findOrFail($id);
+        $product->update(['status' => $request->status]);
+
+        return response()->json(['message' => 'Status updated.', 'data' => $product]);
     }
 }

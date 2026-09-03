@@ -109,6 +109,12 @@ export default function LoginPage() {
           <h1 className="text-xl font-bold text-slate-900 mb-1">Welcome back</h1>
           <p className="text-sm text-slate-500 mb-6">Sign in to your account</p>
 
+          {window.location.search.includes('expired=1') && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl p-3 mb-4 font-semibold flex items-center gap-2">
+              <span>⚠️ Session expired. Please log in again to renew your security token.</span>
+            </div>
+          )}
+
           {successMsg && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-3 mb-4 font-medium">
               {successMsg}

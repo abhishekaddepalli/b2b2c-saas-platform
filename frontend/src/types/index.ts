@@ -150,6 +150,8 @@ export interface Service {
   name: string;
   short_description: string | null;
   full_description: string | null;
+  icon?: string | null;
+  image_url?: string | null;
   status: 'draft' | 'active' | 'archived';
   visibility: 'public' | 'reseller_only' | 'hidden';
   featured: boolean;

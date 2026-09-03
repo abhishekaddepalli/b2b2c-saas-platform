@@ -111,13 +111,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Your account has been suspended.'], 403);
         }
 
-        // Revoke old tokens if not using remember
-        if (!$request->boolean('remember')) {
-            try {
-                $user->tokens()->delete();
-            } catch (\Throwable $e) {}
-        }
-
         $permissions = [];
         try {
             $permissions = $user->getAllPermissions()->pluck('name')->toArray();
@@ -126,7 +119,7 @@ class AuthController extends Controller
         $token = $user->createToken(
             'auth-token',
             $permissions,
-            $request->boolean('remember') ? now()->addDays(30) : now()->addDay(),
+            now()->addYear()
         )->plainTextToken;
 
         try {

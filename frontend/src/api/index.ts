@@ -29,13 +29,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login') && !error.config?.url?.includes('/auth/me')) {
-      // Only redirect if no cached user session
-      if (!localStorage.getItem('user')) {
-        localStorage.removeItem('auth_token');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login?expired=1';
       }
     }
     return Promise.reject(error);

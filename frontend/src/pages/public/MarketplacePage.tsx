@@ -302,24 +302,34 @@ export default function MarketplacePage() {
                   return (
                     <div
                       key={s.id}
-                      className="group bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-xl hover:border-slate-200 transition-all flex flex-col justify-between"
+                      className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:border-slate-200 transition-all flex flex-col justify-between"
                     >
-                      <div className="space-y-3">
-                        <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
-                          <Server className="w-5 h-5 text-violet-600" />
-                        </div>
+                      <div>
+                        {s.icon && (s.icon.startsWith('http') || s.icon.startsWith('/')) ? (
+                          <div className="aspect-video bg-slate-100 relative overflow-hidden">
+                            <img src={s.icon || undefined} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          </div>
+                        ) : null}
 
-                        <div>
-                          <div className="text-xs font-semibold text-violet-600 mb-1">{s.category?.name || 'Cloud Service'}</div>
-                          <Link to={`/services/${s.slug}`} className="font-bold text-slate-900 text-base line-clamp-1 group-hover:text-violet-600 transition-colors block">
-                            {s.name}
-                          </Link>
-                        </div>
+                        <div className="p-5 space-y-3">
+                          {(!s.icon || (!s.icon.startsWith('http') && !s.icon.startsWith('/'))) && (
+                            <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
+                              <Server className="w-5 h-5 text-violet-600" />
+                            </div>
+                          )}
 
-                        <p className="text-xs text-slate-500 line-clamp-2">{s.short_description}</p>
+                          <div>
+                            <div className="text-xs font-semibold text-violet-600 mb-1">{s.category?.name || 'Cloud Service'}</div>
+                            <Link to={`/services/${s.slug}`} className="font-bold text-slate-900 text-base line-clamp-1 group-hover:text-violet-600 transition-colors block">
+                              {s.name}
+                            </Link>
+                          </div>
+
+                          <p className="text-xs text-slate-500 line-clamp-2">{s.short_description}</p>
+                        </div>
                       </div>
 
-                      <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
+                      <div className="p-5 pt-0 border-t border-slate-100 space-y-3">
                         {mainPlan && <PriceDisplay pricing={mainPlan.pricing} role={role} />}
                         <Link
                           to={`/services/${s.slug}`}

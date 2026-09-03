@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Plus, Search, CheckCircle, ShieldAlert,
   Loader2, DollarSign, X, Edit3, Trash2,
-  Sparkles, Layers, ArrowUpRight
+  Sparkles, Layers, ArrowUpRight, Image as ImageIcon,
+  LogIn
 } from 'lucide-react';
 import { adminApi } from '../../api';
 import type { Product } from '../../types';
@@ -13,6 +14,12 @@ const statusColors: Record<string, string> = {
   draft: 'bg-amber-50 text-amber-700 border-amber-200',
   archived: 'bg-slate-100 text-slate-500 border-slate-200',
 };
+
+const presetProductImages = [
+  { label: 'Software License', url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=120&auto=format&fit=crop&q=60' },
+  { label: 'Cloud App', url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=120&auto=format&fit=crop&q=60' },
+  { label: 'Hardware Key', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120&auto=format&fit=crop&q=60' },
+];
 
 export default function AdminProducts() {
   const qc = useQueryClient();
@@ -37,6 +44,7 @@ export default function AdminProducts() {
     cost_price: 199,
     reseller_price: 349,
     customer_price: 599,
+    image_url: '',
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -61,7 +69,7 @@ export default function AdminProducts() {
       qc.invalidateQueries({ queryKey: ['admin', 'products'] });
       setShowCreate(false);
       setForm(emptyForm);
-      setSuccessMsg('Product created successfully with wholesale pricing!');
+      setSuccessMsg('Product created successfully with visual asset and pricing!');
       setTimeout(() => setSuccessMsg(''), 4000);
     },
     onError: (err: any) => {
@@ -99,6 +107,7 @@ export default function AdminProducts() {
   const openEditModal = (p: Product) => {
     setEditingProduct(p);
     const price = (p as any).prices?.[0];
+    const img = (p as any).images?.[0]?.path || '';
 
     setForm({
       name: p.name,
@@ -113,8 +122,15 @@ export default function AdminProducts() {
       cost_price: price?.cost_price || 0,
       reseller_price: price?.reseller_price || 0,
       customer_price: price?.customer_price || 0,
+      image_url: img,
     });
     setErrorMsg('');
+  };
+
+  const handleSessionReset = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    window.location.href = '/login?expired=1';
   };
 
   return (
@@ -151,9 +167,20 @@ export default function AdminProducts() {
         </div>
       )}
       {errorMsg && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
-          {errorMsg}
+        <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          {errorMsg.toLowerCase().includes('unauthenticated') && (
+            <button
+              type="button"
+              onClick={handleSessionReset}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-xs"
+            >
+              <LogIn className="w-3.5 h-3.5" /> Re-Login Now
+            </button>
+          )}
         </div>
       )}
 
@@ -248,7 +275,7 @@ export default function AdminProducts() {
             <Package className="w-12 h-12 mx-auto text-slate-300" />
             <p className="text-sm font-semibold text-slate-700">No products found</p>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Create your first catalog product to allow resellers to distribute it.
+              Create your first catalog product with an image and wholesale pricing.
             </p>
             <button
               onClick={() => {
@@ -265,7 +292,7 @@ export default function AdminProducts() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="px-4 py-3.5">Product Title</th>
+                  <th className="px-4 py-3.5">Product & Visual Asset</th>
                   <th className="px-4 py-3.5">Type & SKU</th>
                   <th className="px-4 py-3.5">Cost Price</th>
                   <th className="px-4 py-3.5">Reseller Price</th>
@@ -277,14 +304,23 @@ export default function AdminProducts() {
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {products.map(p => {
                   const price = (p as any).prices?.[0];
+                  const primaryImg = (p as any).images?.[0]?.path;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-800 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                            {p.name.charAt(0).toUpperCase()}
-                          </div>
+                          {primaryImg ? (
+                            <img
+                              src={primaryImg}
+                              alt={p.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0">
+                              {p.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
                               {p.name}
@@ -368,7 +404,7 @@ export default function AdminProducts() {
                   <h2 className="text-base font-bold text-slate-900">
                     {editingProduct ? 'Edit Product' : 'Create New Product'}
                   </h2>
-                  <p className="text-xs text-slate-500">Configure catalog product details and wholesale tiers</p>
+                  <p className="text-xs text-slate-500">Configure catalog product details, image, and wholesale tiers</p>
                 </div>
               </div>
               <button
@@ -424,6 +460,57 @@ export default function AdminProducts() {
                     onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
+                </div>
+              </div>
+
+              {/* Image Option */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-indigo-600" /> Product Image URL
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">Displays in Marketplace & Details</span>
+                </label>
+
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      placeholder="https://example.com/product-box.jpg"
+                      value={form.image_url}
+                      onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-xs"
+                    />
+                  </div>
+                  {form.image_url && (
+                    <img
+                      src={form.image_url}
+                      alt="Preview"
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
+                    />
+                  )}
+                </div>
+
+                {/* Preset Product Badges */}
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Or select a preset visual:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {presetProductImages.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, image_url: preset.url }))}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors flex items-center gap-1.5 ${
+                          form.image_url === preset.url
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={preset.url} alt="" className="w-3.5 h-3.5 rounded object-cover" />
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
