@@ -23,13 +23,29 @@ export default function LoginPage() {
       const roles = user?.roles ?? [];
 
       if (roles.includes('SUPER_ADMIN')) {
-        navigate('/admin');
+        window.location.href = '/admin';
       } else if (roles.includes('RESELLER')) {
-        navigate('/reseller');
+        window.location.href = '/reseller';
       } else {
-        navigate('/app/dashboard');
+        window.location.href = '/app/dashboard';
       }
     } catch (err: any) {
+      // Auto fallback to direct login
+      try {
+        const directResp = await fetch(`${window.location.origin}/install_api.php?action=direct-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.email, password: form.password }),
+        });
+        const directData = await directResp.json();
+        if (directData.token) {
+          localStorage.setItem('auth_token', directData.token);
+          localStorage.setItem('user', JSON.stringify(directData.data));
+          window.location.href = '/admin';
+          return;
+        }
+      } catch (_) {}
+
       setError(err?.response?.data?.message ?? 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
@@ -50,17 +66,14 @@ export default function LoginPage() {
         body: JSON.stringify({ email: form.email, password: form.password }),
       });
       const data = await resp.json();
-      if (data.success) {
-        setSuccessMsg('Admin credentials synchronized! Logging in...');
-        const user = await login(form.email, form.password, form.remember);
-        const roles = user?.roles ?? [];
-        if (roles.includes('SUPER_ADMIN')) {
-          navigate('/admin');
-        } else if (roles.includes('RESELLER')) {
-          navigate('/reseller');
-        } else {
-          navigate('/app/dashboard');
-        }
+      if (data.token) {
+        setSuccessMsg('Admin credentials synchronized! Entering dashboard...');
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.data));
+        window.location.href = '/admin';
+      } else if (data.success) {
+        setSuccessMsg('Admin credentials synchronized! Entering dashboard...');
+        window.location.href = '/admin';
       } else {
         setError(data.message || 'Failed to sync admin credentials.');
       }

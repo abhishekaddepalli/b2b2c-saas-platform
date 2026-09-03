@@ -259,9 +259,26 @@ switch ($action) {
                 file_put_contents($storagePath . '/installed', date('c'));
             }
 
+            $permissions = [];
+            try {
+                $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+            } catch (\Throwable $e) {}
+
+            $token = $user->createToken('auth-token', $permissions, now()->addDays(30))->plainTextToken;
+
             echo json_encode([
                 'success' => true,
                 'message' => "Super Admin password reset successfully and demo accounts removed for {$email}!",
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $user->getRoleNames(),
+                    'permissions' => $permissions,
+                    'status' => $user->status,
+                ],
             ]);
             exit;
         } catch (\Throwable $e) {
