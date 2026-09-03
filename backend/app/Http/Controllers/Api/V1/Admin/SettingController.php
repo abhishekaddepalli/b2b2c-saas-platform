@@ -5,22 +5,111 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class SettingController extends Controller
 {
+    private string $settingsFile;
+
+    public function __construct()
+    {
+        $this->settingsFile = storage_path('app/settings.json');
+    }
+
+    private function getDefaultSettings(): array
+    {
+        return [
+            // Platform Branding
+            'platform_name' => 'B2B2C Enterprise SaaS Platform',
+            'brand_title' => 'Resell Cloud HQ',
+            'support_email' => 'support@infiniforge.cloud',
+            'support_phone' => '+91 9876543210',
+            'currency' => 'INR',
+            'default_tax_rate' => 18,
+            'primary_color' => '#6366f1',
+            'accent_color' => '#8b5cf6',
+            'logo_url' => '',
+            'favicon_url' => '',
+            'custom_domain' => 'resell.infiniforge.cloud',
+
+            // White-label & Reseller Governance
+            'enable_whitelabel_reseller' => true,
+            'auto_approve_resellers' => true,
+            'default_reseller_margin' => 15,
+            'min_wallet_recharge' => 500,
+            'max_credit_limit' => 50000,
+
+            // Razorpay Gateway
+            'enable_razorpay' => true,
+            'razorpay_key_id' => 'rzp_live_default_key',
+            'razorpay_key_secret' => 'rzp_live_secret_key',
+            'razorpay_webhook_secret' => '',
+            'razorpay_mode' => 'live',
+
+            // Stripe Gateway
+            'enable_stripe' => true,
+            'stripe_publishable_key' => 'pk_live_default_key',
+            'stripe_secret_key' => 'sk_live_default_secret',
+            'stripe_webhook_secret' => '',
+            'stripe_mode' => 'live',
+
+            // PhonePe Gateway
+            'enable_phonepe' => false,
+            'phonepe_merchant_id' => '',
+            'phonepe_salt_key' => '',
+            'phonepe_salt_index' => '1',
+            'phonepe_mode' => 'sandbox',
+
+            // Cashfree Gateway
+            'enable_cashfree' => false,
+            'cashfree_app_id' => '',
+            'cashfree_secret_key' => '',
+            'cashfree_mode' => 'sandbox',
+
+            // Bank Transfer / Manual IMPS/NEFT
+            'enable_bank_transfer' => true,
+            'bank_name' => 'HDFC Bank',
+            'bank_account_name' => 'Infiniforge Cloud Solutions',
+            'bank_account_number' => '50200012345678',
+            'bank_ifsc' => 'HDFC0001234',
+            'bank_branch' => 'Corporate Banking Branch',
+        ];
+    }
+
     public function index(): JsonResponse
     {
-        return response()->json([
-            'data' => [
-                'platform_name' => 'SaaS Platform',
-                'currency' => 'INR',
-                'support_email' => 'support@saasplatform.com',
-            ],
-        ]);
+        $defaults = $this->getDefaultSettings();
+
+        if (File::exists($this->settingsFile)) {
+            $saved = json_decode(File::get($this->settingsFile), true) ?: [];
+            $settings = array_merge($defaults, $saved);
+        } else {
+            $settings = $defaults;
+        }
+
+        return response()->json(['data' => $settings]);
     }
 
     public function update(Request $request): JsonResponse
     {
-        return response()->json(['message' => 'Settings updated successfully.']);
+        $defaults = $this->getDefaultSettings();
+        $current = [];
+
+        if (File::exists($this->settingsFile)) {
+            $current = json_decode(File::get($this->settingsFile), true) ?: [];
+        }
+
+        $merged = array_merge($defaults, $current, $request->all());
+
+        if (!File::isDirectory(dirname($this->settingsFile))) {
+            File::makeDirectory(dirname($this->settingsFile), 0755, true);
+        }
+
+        File::put($this->settingsFile, json_encode($merged, JSON_PRETTY_PRINT));
+
+        return response()->json([
+            'message' => 'Platform settings and payment gateway credentials saved successfully.',
+            'data' => $merged,
+        ]);
     }
 }
