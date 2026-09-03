@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users, Plus, Search, Shield, Building2, User as UserIcon,
   CheckCircle, ShieldAlert, Loader2, X, Edit3, Trash2, Key,
-  Sparkles, ShieldCheck
+  Sparkles, ShieldCheck, LogIn
 } from 'lucide-react';
 import { adminApi } from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 import type { User } from '../../types';
 
 const roleBadges: Record<string, { bg: string; text: string; border: string; icon: any; label: string }> = {
@@ -40,15 +42,34 @@ const statusColors: Record<string, string> = {
 
 export default function AdminUsers() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { user: currentUser, impersonateUser } = useAuth();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const handleImpersonate = async (targetUser: User) => {
+    if (!window.confirm(`Log in and impersonate ${targetUser.name} (${targetUser.email})?\n\nYou will access the portal from their perspective with all their data and permissions. You can return to Super Admin anytime via the persistent top banner.`)) {
+      return;
+    }
+    try {
+      setImpersonatingUserId(targetUser.id);
+      setSuccessMessage(`Initiating impersonation session for ${targetUser.name}…`);
+      const targetRoute = await impersonateUser(targetUser.id);
+      navigate(targetRoute);
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.message || err?.message || 'Failed to initiate impersonation session.');
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  };
 
   // Form states for Add User
   const [addForm, setAddForm] = useState({
@@ -408,6 +429,22 @@ export default function AdminUsers() {
 
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {currentUser?.id !== u.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleImpersonate(u)}
+                              disabled={impersonatingUserId === u.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all disabled:opacity-50"
+                              title={`Log in and view session as ${u.name}`}
+                            >
+                              {impersonatingUserId === u.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                              ) : (
+                                <LogIn className="w-3.5 h-3.5 text-amber-600" />
+                              )}
+                              <span>Login As</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => openEditModal(u)}

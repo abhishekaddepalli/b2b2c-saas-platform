@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Auth\AuthUserResource;
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -135,5 +137,81 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully.']);
+    }
+
+    public function impersonate(Request $request, string $id): JsonResponse
+    {
+        $admin = $request->user();
+        if (!$admin || !$admin->hasRole('SUPER_ADMIN')) {
+            return response()->json(['message' => 'Unauthorized. Only Super Admin can impersonate users.'], 403);
+        }
+
+        if ($admin->id === $id) {
+            return response()->json(['message' => 'You cannot impersonate yourself.'], 422);
+        }
+
+        $targetUser = User::with(['roles', 'currentOrganization'])->findOrFail($id);
+
+        // Delete any old impersonated tokens
+        $targetUser->tokens()->where('name', 'like', 'impersonated_%')->delete();
+
+        $permissions = [];
+        try {
+            $permissions = $targetUser->getAllPermissions()->pluck('name')->toArray();
+        } catch (\Throwable $e) {}
+
+        $token = $targetUser->createToken(
+            'impersonated_by_' . $admin->id,
+            $permissions,
+            now()->addHours(8)
+        )->plainTextToken;
+
+        // Log audit event
+        try {
+            AuditLog::create([
+                'actor_id' => $admin->id,
+                'organization_id' => $targetUser->current_organization_id,
+                'action' => 'impersonate_start',
+                'resource_type' => User::class,
+                'resource_id' => $targetUser->id,
+                'old_values' => ['admin_email' => $admin->email, 'admin_name' => $admin->name],
+                'new_values' => [
+                    'target_id' => $targetUser->id,
+                    'target_email' => $targetUser->email,
+                    'target_name' => $targetUser->name,
+                    'target_role' => $targetUser->getRoleNames()->first() ?? 'USER',
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'context' => ['channel' => 'super_admin_panel'],
+            ]);
+        } catch (\Throwable $e) {}
+
+        $targetRoute = '/admin';
+        if ($targetUser->hasRole('RESELLER')) {
+            $targetRoute = '/reseller/dashboard';
+        } elseif ($targetUser->hasRole('USER')) {
+            $targetRoute = '/customer/dashboard';
+        }
+
+        return response()->json([
+            'message' => "Logged in as {$targetUser->name}",
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'data' => new AuthUserResource($targetUser),
+            'target_route' => $targetRoute,
+        ]);
+    }
+
+    public function stopImpersonate(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // If user is currently authenticated via an impersonation token, delete it
+        if ($user && $user->currentAccessToken() && str_starts_with($user->currentAccessToken()->name, 'impersonated_')) {
+            $user->currentAccessToken()->delete();
+        }
+
+        return response()->json(['message' => 'Impersonation session ended.']);
     }
 }

@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, Plus, Search, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, Layers,
   Wallet, Sparkles, X, ChevronRight,
-  TrendingUp, Users, ArrowUpRight
+  TrendingUp, Users, ArrowUpRight, LogIn
 } from 'lucide-react';
 import { adminApi } from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Organization } from '../../types';
 
 const statusColors: Record<string, string> = {
@@ -24,14 +26,32 @@ const tierColors: Record<string, string> = {
 
 export default function AdminOrganizations() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { impersonateOrg } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [impersonatingOrgId, setImpersonatingOrgId] = useState<string | null>(null);
 
   // Modals & Drawers state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [activeTab, setActiveTab] = useState<'margin' | 'plan' | 'services' | 'wallet' | 'details'>('margin');
+
+  const handleImpersonateOrg = async (org: Organization) => {
+    if (!window.confirm(`Log in and impersonate Reseller Organization "${org.name}"?\n\nYou will access the Reseller Portal directly as the organization owner with full administrative capabilities. You can return to Super Admin anytime via the persistent top banner.`)) {
+      return;
+    }
+    try {
+      setImpersonatingOrgId(org.id);
+      const targetRoute = await impersonateOrg(org.id);
+      navigate(targetRoute);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to impersonate reseller organization.');
+    } finally {
+      setImpersonatingOrgId(null);
+    }
+  };
 
   // Form states for Create Modal
   const [createForm, setCreateForm] = useState({
@@ -389,6 +409,20 @@ export default function AdminOrganizations() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
+                            onClick={() => handleImpersonateOrg(org)}
+                            disabled={impersonatingOrgId === org.id}
+                            className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-bold px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                            title={`Log in as Reseller (${org.name})`}
+                          >
+                            {impersonatingOrgId === org.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                            ) : (
+                              <LogIn className="w-3.5 h-3.5 text-amber-600" />
+                            )}
+                            <span>Login As</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openManageDrawer(org, 'margin')}
                             className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 shadow-2xs"
                           >
@@ -608,13 +642,29 @@ export default function AdminOrganizations() {
                   <p className="text-xs text-slate-400 font-mono">Slug: /{selectedOrg.slug} • Type: {selectedOrg.type}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrg(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleImpersonateOrg(selectedOrg)}
+                  disabled={impersonatingOrgId === selectedOrg.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-xs hover:shadow transition-all disabled:opacity-50"
+                  title={`Log in as Reseller for ${selectedOrg.name}`}
+                >
+                  {impersonatingOrgId === selectedOrg.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <LogIn className="w-3.5 h-3.5" />
+                  )}
+                  <span>Login as Reseller</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrg(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Notification Banner */}

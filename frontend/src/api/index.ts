@@ -188,6 +188,9 @@ export const adminApi = {
   createUser: (data: object) => api.post('/admin/users', data),
   updateUser: (id: string, data: object) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+  impersonateUser: (id: string) => api.post(`/admin/users/${id}/impersonate`),
+  impersonateOrg: (id: string) => api.post(`/admin/organizations/${id}/impersonate`),
+  stopImpersonate: () => api.post('/stop-impersonate'),
 
   // Wallet management
   wallets: (params?: object) => api.get('/admin/wallets', { params }),

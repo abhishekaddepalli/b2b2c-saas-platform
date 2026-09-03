@@ -8,6 +8,7 @@ import AdminLayout from './components/layout/AdminLayout';
 import ResellerLayout from './components/layout/ResellerLayout';
 import CustomerLayout from './components/layout/CustomerLayout';
 import PublicLayout from './components/layout/PublicLayout';
+import ImpersonationBanner from './components/common/ImpersonationBanner';
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
@@ -111,6 +112,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <ImpersonationBanner />
           <Routes>
             {/* Public */}
             <Route element={<PublicLayout />}>

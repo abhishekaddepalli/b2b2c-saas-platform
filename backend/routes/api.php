@@ -95,6 +95,8 @@ Route::prefix('v1')->group(function () {
             Route::post('tickets/{id}/messages', [\App\Http\Controllers\Api\V1\SupportController::class, 'addMessage']);
         });
 
+        Route::post('stop-impersonate', [\App\Http\Controllers\Api\V1\Admin\UserController::class, 'stopImpersonate']);
+
         // ─── Reseller routes ──────────────────────────────────────────────────
         Route::middleware('role:RESELLER|SUPER_ADMIN')->prefix('reseller')->group(function () {
             Route::get('dashboard', [\App\Http\Controllers\Api\V1\Reseller\DashboardController::class, 'index']);
@@ -153,8 +155,10 @@ Route::prefix('v1')->group(function () {
             Route::post('organizations/{id}/adjust-margin', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'adjustMargin']);
             Route::post('organizations/{id}/assign-plan', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'assignPlan']);
             Route::post('organizations/{id}/assign-services', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'assignServices']);
+            Route::post('organizations/{id}/impersonate', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'impersonate']);
 
             Route::apiResource('users', \App\Http\Controllers\Api\V1\Admin\UserController::class);
+            Route::post('users/{id}/impersonate', [\App\Http\Controllers\Api\V1\Admin\UserController::class, 'impersonate']);
             Route::apiResource('offers', \App\Http\Controllers\Api\V1\Admin\OfferController::class);
             Route::apiResource('coupons', \App\Http\Controllers\Api\V1\Admin\CouponController::class);
             Route::apiResource('advertisements', \App\Http\Controllers\Api\V1\Admin\AdvertisementController::class);

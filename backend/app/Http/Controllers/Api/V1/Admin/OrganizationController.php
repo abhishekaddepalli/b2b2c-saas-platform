@@ -332,4 +332,21 @@ class OrganizationController extends Controller
             'data' => $org,
         ]);
     }
+
+    public function impersonate(Request $request, string $id): JsonResponse
+    {
+        $admin = $request->user();
+        if (!$admin || !$admin->hasRole('SUPER_ADMIN')) {
+            return response()->json(['message' => 'Unauthorized. Only Super Admin can impersonate organizations.'], 403);
+        }
+
+        $org = Organization::with('users')->findOrFail($id);
+        $owner = $org->users()->first();
+
+        if (!$owner) {
+            return response()->json(['message' => 'No active user found associated with this organization.'], 404);
+        }
+
+        return (new UserController())->impersonate($request, $owner->id);
+    }
 }
