@@ -16,6 +16,24 @@ $_ENV['SESSION_DRIVER'] = 'file';
 $_ENV['QUEUE_CONNECTION'] = 'sync';
 $_ENV['REDIS_HOST'] = '127.0.0.1';
 
+// Restore Authorization header if stripped by LiteSpeed / Apache FastCGI
+if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['HTTP_X_AUTH_TOKEN'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $_SERVER['HTTP_X_AUTH_TOKEN'];
+    } elseif (function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        if (isset($headers['Authorization'])) {
+            $_SERVER['HTTP_AUTHORIZATION'] = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $_SERVER['HTTP_AUTHORIZATION'] = $headers['authorization'];
+        } elseif (isset($headers['X-Auth-Token'])) {
+            $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $headers['X-Auth-Token'];
+        }
+    }
+}
+
 // Determine if the application is under maintenance...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;

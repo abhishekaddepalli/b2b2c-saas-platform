@@ -20,23 +20,38 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem('user');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem('user'));
 
   const refreshUser = useCallback(async () => {
-    if (!localStorage.getItem('auth_token')) {
+    const savedToken = localStorage.getItem('auth_token');
+    if (!savedToken) {
       setUser(null);
       setIsLoading(false);
       return;
     }
     try {
       const response = await authApi.me();
-      setUser(response.data.data);
-    } catch {
-      localStorage.removeItem('auth_token');
-      setToken(null);
-      setUser(null);
+      if (response.data?.data) {
+        setUser(response.data.data);
+        localStorage.setItem('user', JSON.stringify(response.data.data));
+      }
+    } catch (err: any) {
+      // If error occurs but user was already in localStorage, keep session active
+      if (err?.response?.status === 401 && !localStorage.getItem('user')) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
