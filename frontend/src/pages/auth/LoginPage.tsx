@@ -9,11 +9,14 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '', remember: false });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
     try {
       const user = await login(form.email, form.password, form.remember);
@@ -33,11 +36,53 @@ export default function LoginPage() {
     }
   };
 
+  const handleSyncAdmin = async () => {
+    if (!form.email || !form.password) {
+      setError('Please enter both your email and password first.');
+      return;
+    }
+    setError('');
+    setIsSyncing(true);
+    try {
+      const resp = await fetch(`${window.location.origin}/install_api.php?action=reset-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setSuccessMsg('Admin credentials synchronized! Logging in...');
+        const user = await login(form.email, form.password, form.remember);
+        const roles = user?.roles ?? [];
+        if (roles.includes('SUPER_ADMIN')) {
+          navigate('/admin');
+        } else if (roles.includes('RESELLER')) {
+          navigate('/reseller');
+        } else {
+          navigate('/app/dashboard');
+        }
+      } else {
+        setError(data.message || 'Failed to sync admin credentials.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Sync request failed.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        {/* Back to Home */}
+        <div className="mb-4">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+            &larr; Back to Home
+          </Link>
+        </div>
+
         {/* Logo */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-6">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
               <Zap className="w-5 h-5 text-white" />
@@ -51,9 +96,24 @@ export default function LoginPage() {
           <h1 className="text-xl font-bold text-slate-900 mb-1">Welcome back</h1>
           <p className="text-sm text-slate-500 mb-6">Sign in to your account</p>
 
+          {successMsg && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-3 mb-4 font-medium">
+              {successMsg}
+            </div>
+          )}
+
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">
-              {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3.5 mb-4 space-y-2">
+              <div>{error}</div>
+              <button
+                type="button"
+                onClick={handleSyncAdmin}
+                disabled={isSyncing}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm text-xs"
+              >
+                {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span>Sync & Activate This Password For Super Admin</span>
+              </button>
             </div>
           )}
 
