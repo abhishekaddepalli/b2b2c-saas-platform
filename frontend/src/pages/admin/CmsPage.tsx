@@ -237,6 +237,7 @@ export default function AdminCms() {
       storage_mb: plan.storage_mb ?? 2048,
       api_rate_limit: plan.api_rate_limit ?? 60,
       white_label_available: Boolean(plan.white_label_available),
+      features: Array.isArray(plan.features) ? plan.features.join('\n') : (plan.features || ''),
     });
     setIsPlanModalOpen(true);
   };
@@ -257,6 +258,7 @@ export default function AdminCms() {
       storage_mb: 2048,
       api_rate_limit: 60,
       white_label_available: true,
+      features: 'Full White-Label Branding\nAtomic Prepaid Wallet Ledger\nCustom Domain DNS Mapping\nPriority 24/7 Support Desk',
     });
     setIsPlanModalOpen(true);
   };
@@ -580,15 +582,21 @@ export default function AdminCms() {
                           <div className="space-y-1.5 pt-2 border-t border-slate-100 text-slate-600">
                             <div className="flex justify-between">
                               <span className="text-slate-400">Customer Limit:</span>
-                              <span className="font-bold">{plan.customer_limit} customers</span>
+                              <span className="font-bold text-slate-800">
+                                {plan.customer_limit === -1 || plan.customer_limit >= 99999 ? '∞ Unlimited' : `${plan.customer_limit} users`}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Products Limit:</span>
-                              <span className="font-bold">{plan.products_limit} products</span>
+                              <span className="font-bold text-slate-800">
+                                {plan.products_limit === -1 || plan.products_limit >= 99999 ? '∞ Unlimited' : `${plan.products_limit} items`}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Services Limit:</span>
-                              <span className="font-bold">{plan.services_limit} services</span>
+                              <span className="font-bold text-slate-800">
+                                {plan.services_limit === -1 || plan.services_limit >= 99999 ? '∞ Unlimited' : `${plan.services_limit} items`}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">White-Label:</span>
@@ -600,6 +608,22 @@ export default function AdminCms() {
                               <span className="text-slate-400">Trial Period:</span>
                               <span className="font-bold">{plan.trial_days} Days</span>
                             </div>
+
+                            {Array.isArray(plan.features) && plan.features.length > 0 && (
+                              <div className="pt-2 border-t border-slate-100 space-y-1">
+                                {plan.features.slice(0, 3).map((f: string, fi: number) => (
+                                  <div key={fi} className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
+                                    <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
+                                    <span>{f}</span>
+                                  </div>
+                                ))}
+                                {plan.features.length > 3 && (
+                                  <div className="text-[10px] text-indigo-600 font-semibold pl-4.5">
+                                    +{plan.features.length - 3} more features
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -1004,35 +1028,74 @@ export default function AdminCms() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Customer Quota Limit</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700">Customer Quota</label>
+                    <label className="flex items-center gap-1 text-[10px] text-indigo-600 font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={planForm.customer_limit === -1}
+                        onChange={e => setPlanForm({ ...planForm, customer_limit: e.target.checked ? -1 : 100 })}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Unlimited (∞)</span>
+                    </label>
+                  </div>
                   <input
                     type="number"
                     required
-                    value={planForm.customer_limit}
+                    disabled={planForm.customer_limit === -1}
+                    value={planForm.customer_limit === -1 ? '' : planForm.customer_limit}
+                    placeholder={planForm.customer_limit === -1 ? 'Unlimited' : '100'}
                     onChange={e => setPlanForm({ ...planForm, customer_limit: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl disabled:bg-slate-100 disabled:text-slate-400 font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Products Quota Limit</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700">Products Quota</label>
+                    <label className="flex items-center gap-1 text-[10px] text-indigo-600 font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={planForm.products_limit === -1}
+                        onChange={e => setPlanForm({ ...planForm, products_limit: e.target.checked ? -1 : 50 })}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Unlimited (∞)</span>
+                    </label>
+                  </div>
                   <input
                     type="number"
                     required
-                    value={planForm.products_limit}
+                    disabled={planForm.products_limit === -1}
+                    value={planForm.products_limit === -1 ? '' : planForm.products_limit}
+                    placeholder={planForm.products_limit === -1 ? 'Unlimited' : '50'}
                     onChange={e => setPlanForm({ ...planForm, products_limit: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl disabled:bg-slate-100 disabled:text-slate-400 font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Services Quota Limit</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700">Services Quota</label>
+                    <label className="flex items-center gap-1 text-[10px] text-indigo-600 font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={planForm.services_limit === -1}
+                        onChange={e => setPlanForm({ ...planForm, services_limit: e.target.checked ? -1 : 25 })}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Unlimited (∞)</span>
+                    </label>
+                  </div>
                   <input
                     type="number"
                     required
-                    value={planForm.services_limit}
+                    disabled={planForm.services_limit === -1}
+                    value={planForm.services_limit === -1 ? '' : planForm.services_limit}
+                    placeholder={planForm.services_limit === -1 ? 'Unlimited' : '25'}
                     onChange={e => setPlanForm({ ...planForm, services_limit: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl disabled:bg-slate-100 disabled:text-slate-400 font-bold"
                   />
                 </div>
 
@@ -1044,7 +1107,20 @@ export default function AdminCms() {
                     min="0"
                     value={planForm.trial_days}
                     onChange={e => setPlanForm({ ...planForm, trial_days: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Included Features (one per line, shown on pricing cards)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={planForm.features}
+                    onChange={e => setPlanForm({ ...planForm, features: e.target.value })}
+                    placeholder="Full White-Label Branding&#10;Automated Wallet Engine&#10;Priority 24/7 Support"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-[11px]"
                   />
                 </div>
 
