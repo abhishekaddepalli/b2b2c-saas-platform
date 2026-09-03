@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutTemplate, Save, CheckCircle, AlertCircle, Loader2,
   Sparkles, Globe, FileText, Plus, Trash2, Edit3, Eye,
-  Shield, Layers, Star, TrendingUp, DollarSign, Phone,
+  Shield, Layers, Star, TrendingUp, IndianRupee, Phone,
   Mail, MapPin, ExternalLink, RefreshCw, X, MessageSquare
 } from 'lucide-react';
 import { adminApi } from '../../api';
@@ -320,7 +320,7 @@ export default function AdminCms() {
       <div className="flex border-b border-slate-200 text-xs font-bold gap-2 overflow-x-auto">
         {[
           { id: 'hero', label: 'Landing & Hero Copy', icon: Sparkles },
-          { id: 'plans', label: 'SaaS Monetization Plans', icon: DollarSign },
+          { id: 'plans', label: 'SaaS Monetization Plans (₹)', icon: IndianRupee },
           { id: 'pages', label: 'Legal & Company Pages', icon: FileText },
           { id: 'branding', label: 'Header & Footer Branding', icon: Globe },
           { id: 'seo', label: 'SEO & Meta Tags', icon: Shield },
@@ -555,7 +555,7 @@ export default function AdminCms() {
                   </div>
                 ) : plansList.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
-                    <DollarSign className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                    <IndianRupee className="w-10 h-10 mx-auto mb-2 text-slate-300" />
                     <p className="font-semibold">No SaaS plans configured yet.</p>
                   </div>
                 ) : (

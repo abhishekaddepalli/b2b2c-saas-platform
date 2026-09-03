@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Search, CheckCircle, ShieldAlert,
-  Loader2, DollarSign, X, Eye, RefreshCw,
+  Loader2, IndianRupee, X, Eye, RefreshCw,
   ShoppingBag, Calendar, Clock, CreditCard
 } from 'lucide-react';
 import { adminApi } from '../../api';
@@ -120,7 +120,7 @@ export default function AdminOrders() {
             <div className="text-xl font-bold text-slate-900 mt-1">₹{totalGrossVolume.toLocaleString('en-IN')}</div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-            <DollarSign className="w-5 h-5" />
+            <IndianRupee className="w-5 h-5" />
           </div>
         </div>
       </div>

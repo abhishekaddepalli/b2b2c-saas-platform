@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wallet, Plus, Search, CheckCircle, ShieldAlert,
-  Loader2, DollarSign, X, TrendingUp, Building2,
+  Loader2, IndianRupee, X, TrendingUp, Building2,
   ArrowUpRight, ArrowDownLeft
 } from 'lucide-react';
 import { adminApi } from '../../api';

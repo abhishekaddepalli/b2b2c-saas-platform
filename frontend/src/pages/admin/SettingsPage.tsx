@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings, Save, CheckCircle, ShieldCheck, CreditCard,
   Building2, Palette, Globe, Layers, Key, Loader2,
-  DollarSign, Sparkles, AlertCircle, RefreshCw, Bell,
+  IndianRupee, Sparkles, AlertCircle, RefreshCw, Bell,
   Mail, MessageSquare, Send, Bot, Cpu, Cloud, Radio,
   Webhook, Zap, ShieldAlert
 } from 'lucide-react';
@@ -636,7 +636,7 @@ export default function AdminSettings() {
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Low Reseller Wallet Alert Threshold (₹)</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="number"
                         min="100"

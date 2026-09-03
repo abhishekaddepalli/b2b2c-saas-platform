@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, Plus, Search, CheckCircle, ShieldAlert,
-  Loader2, DollarSign, Layers,
+  Loader2, IndianRupee, Layers,
   Wallet, Sparkles, X, ChevronRight,
   TrendingUp, Users, ArrowUpRight
 } from 'lucide-react';
@@ -628,7 +628,7 @@ export default function AdminOrganizations() {
             {/* Tab Navigation */}
             <div className="flex border-b border-slate-100 text-xs font-semibold gap-1">
               {[
-                { id: 'margin', label: 'Margin & Pricing', icon: DollarSign },
+                { id: 'margin', label: 'Margin & Pricing', icon: IndianRupee },
                 { id: 'plan', label: 'SaaS Plan', icon: Layers },
                 { id: 'services', label: 'Assigned Services', icon: ArrowUpRight },
                 { id: 'wallet', label: 'Wallet Capital', icon: Wallet },

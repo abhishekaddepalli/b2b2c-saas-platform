@@ -18,6 +18,10 @@ class SaasPlanController extends Controller
      */
     public function index(): JsonResponse
     {
+        if (SaasPlan::count() === 0) {
+            app(\App\Http\Controllers\Api\V1\Admin\SaasPlanAdminController::class)->index(request());
+        }
+
         $plans = SaasPlan::where('status', 'active')
             ->orderBy('sort_order')
             ->get();

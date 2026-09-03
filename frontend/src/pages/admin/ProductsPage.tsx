@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Plus, Search, CheckCircle, ShieldAlert,
-  Loader2, DollarSign, X, Edit3, Trash2,
+  Loader2, IndianRupee, X, Edit3, Trash2,
   Sparkles, Layers, ArrowUpRight, Image as ImageIcon,
   LogIn
 } from 'lucide-react';
@@ -556,7 +556,7 @@ export default function AdminProducts() {
               {/* Pricing Section */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <DollarSign className="w-4 h-4 text-emerald-600" /> Wholesale & Retail Pricing (₹ INR)
+                  <IndianRupee className="w-4 h-4 text-emerald-600" /> Wholesale & Retail Pricing (₹ INR)
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
