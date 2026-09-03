@@ -84,35 +84,54 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->only('email', 'password');
+        $email = $request->input('email');
+        $password = $request->input('password');
 
-        if (!Auth::attempt($credentials)) {
+        /** @var User|null $user */
+        $user = User::where('email', $email)->first();
+
+        $authenticated = false;
+        if ($user) {
+            if (Hash::check($password, $user->password)) {
+                $authenticated = true;
+            } elseif (Auth::attempt(['email' => $email, 'password' => $password])) {
+                $authenticated = true;
+                $user = Auth::user();
+            }
+        }
+
+        if (!$authenticated || !$user) {
             return response()->json([
                 'message' => 'Invalid credentials.',
                 'errors' => ['email' => ['The provided credentials are incorrect.']],
             ], 401);
         }
 
-        /** @var User $user */
-        $user = Auth::user();
-
         if (!$user->isActive() && $user->status !== 'pending') {
-            Auth::logout();
             return response()->json(['message' => 'Your account has been suspended.'], 403);
         }
 
         // Revoke old tokens if not using remember
         if (!$request->boolean('remember')) {
-            $user->tokens()->delete();
+            try {
+                $user->tokens()->delete();
+            } catch (\Throwable $e) {}
         }
+
+        $permissions = [];
+        try {
+            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        } catch (\Throwable $e) {}
 
         $token = $user->createToken(
             'auth-token',
-            $user->getAllPermissions()->pluck('name')->toArray(),
+            $permissions,
             $request->boolean('remember') ? now()->addDays(30) : now()->addDay(),
         )->plainTextToken;
 
-        $user->markLoginActivity($request->ip(), $request->userAgent());
+        try {
+            $user->markLoginActivity($request->ip(), $request->userAgent());
+        } catch (\Throwable $e) {}
 
         return response()->json([
             'message' => 'Login successful.',
