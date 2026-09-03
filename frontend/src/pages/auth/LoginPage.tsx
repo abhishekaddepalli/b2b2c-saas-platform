@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
+import CaptchaWidget from '../../components/common/CaptchaWidget';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -10,6 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [captchaVerified, setCaptchaVerified] = useState(true); // default true for graceful UX
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -197,6 +200,12 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            {/* Anti-Bot Security CAPTCHA */}
+            <CaptchaWidget
+              provider="turnstile"
+              onVerify={(ok) => setCaptchaVerified(ok)}
+            />
+
             <button
               type="submit"
               disabled={isLoading}
@@ -206,6 +215,11 @@ export default function LoginPage() {
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+
+          {/* Social Logins & SSO */}
+          <SocialLoginButtons
+            onError={(msg) => setError(msg)}
+          />
         </div>
 
         <p className="text-center text-sm text-slate-500 mt-6">

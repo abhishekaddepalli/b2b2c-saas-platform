@@ -71,6 +71,8 @@ export const authApi = {
   me: () => api.get('/auth/me'),
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
   resetPassword: (data: object) => api.post('/auth/reset-password', data),
+  socialConfig: () => api.get('/auth/social-config'),
+  socialLogin: (data: object) => api.post('/auth/social-login', data),
   changePassword: (data: object) => api.post('/auth/change-password', data),
   resendVerification: () => api.post('/auth/resend-verification'),
 };

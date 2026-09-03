@@ -48,6 +48,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
+        Route::get('social-config', [AuthController::class, 'socialConfig']);
+        Route::post('social-login', [AuthController::class, 'socialLogin']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
         Route::get('verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])

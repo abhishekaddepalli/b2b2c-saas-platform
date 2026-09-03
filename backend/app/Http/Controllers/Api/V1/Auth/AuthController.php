@@ -298,4 +298,103 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password changed successfully.']);
     }
+
+    /**
+     * Get public social login and anti-bot CAPTCHA configurations (without secret keys).
+     */
+    public function socialConfig(): JsonResponse
+    {
+        $settingsFile = storage_path('app/settings.json');
+        $s = [];
+        if (\Illuminate\Support\Facades\File::exists($settingsFile)) {
+            $s = json_decode(\Illuminate\Support\Facades\File::get($settingsFile), true) ?: [];
+        }
+
+        return response()->json([
+            'data' => [
+                'google' => [
+                    'enabled' => (bool) ($s['enable_google_oauth'] ?? true),
+                    'client_id' => $s['google_client_id'] ?? '',
+                ],
+                'facebook' => [
+                    'enabled' => (bool) ($s['enable_facebook_oauth'] ?? true),
+                    'app_id' => $s['facebook_app_id'] ?? '',
+                ],
+                'github' => [
+                    'enabled' => (bool) ($s['enable_github_oauth'] ?? true),
+                    'client_id' => $s['github_client_id'] ?? '',
+                ],
+                'microsoft' => [
+                    'enabled' => (bool) ($s['enable_microsoft_oauth'] ?? false),
+                    'client_id' => $s['microsoft_client_id'] ?? '',
+                ],
+                'captcha' => [
+                    'enabled' => (bool) ($s['enable_captcha'] ?? true),
+                    'provider' => $s['captcha_provider'] ?? 'turnstile',
+                    'site_key' => $s['captcha_site_key'] ?? '0x4AAAAAAtest_site_key',
+                    'on_login' => (bool) ($s['captcha_on_login'] ?? true),
+                    'on_register' => (bool) ($s['captcha_on_register'] ?? true),
+                    'on_forgot_password' => (bool) ($s['captcha_on_forgot_password'] ?? true),
+                ],
+            ]
+        ]);
+    }
+
+    /**
+     * Authenticate or register via Social OAuth providers.
+     */
+    public function socialLogin(Request $request): JsonResponse
+    {
+        $request->validate([
+            'provider' => 'required|string|in:google,facebook,github,microsoft',
+            'email' => 'required|email',
+            'name' => 'nullable|string',
+            'provider_id' => 'nullable|string',
+            'avatar' => 'nullable|string',
+        ]);
+
+        $provider = $request->provider;
+        $email = strtolower(trim($request->email));
+        $name = $request->name ?: ucfirst($provider) . ' User';
+
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(32)),
+                'status' => 'active',
+                'email_verified_at' => now(),
+            ]);
+
+            $user->assignRole('USER');
+        }
+
+        if (!$user->isActive() && $user->status !== 'pending') {
+            return response()->json(['message' => 'Your account has been suspended.'], 403);
+        }
+
+        $permissions = [];
+        try {
+            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        } catch (\Throwable $e) {}
+
+        $token = $user->createToken(
+            "{$provider}-token",
+            $permissions,
+            now()->addYear()
+        )->plainTextToken;
+
+        try {
+            $user->markLoginActivity($request->ip(), $request->userAgent());
+        } catch (\Throwable $e) {}
+
+        return response()->json([
+            'message' => "Successfully authenticated with " . ucfirst($provider),
+            'data' => new AuthUserResource($user),
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
 }

@@ -114,9 +114,37 @@ class SettingController extends Controller
             'enable_cloudflare' => false,
             'cloudflare_zone_id' => '',
             'cloudflare_api_token' => '',
-            'enable_google_oauth' => false,
+
+            // Social Auth & SSO Integrations
+            'enable_google_oauth' => true,
             'google_client_id' => '',
             'google_client_secret' => '',
+            'google_redirect_uri' => 'https://resell.infiniforge.cloud/api/v1/auth/callback/google',
+
+            'enable_facebook_oauth' => true,
+            'facebook_app_id' => '',
+            'facebook_app_secret' => '',
+            'facebook_redirect_uri' => 'https://resell.infiniforge.cloud/api/v1/auth/callback/facebook',
+
+            'enable_github_oauth' => true,
+            'github_client_id' => '',
+            'github_client_secret' => '',
+            'github_redirect_uri' => 'https://resell.infiniforge.cloud/api/v1/auth/callback/github',
+
+            'enable_microsoft_oauth' => false,
+            'microsoft_client_id' => '',
+            'microsoft_client_secret' => '',
+            'microsoft_tenant_id' => 'common',
+            'microsoft_redirect_uri' => 'https://resell.infiniforge.cloud/api/v1/auth/callback/microsoft',
+
+            // Anti-Bot & CAPTCHA Shield
+            'enable_captcha' => true,
+            'captcha_provider' => 'turnstile', // turnstile, recaptcha_v2, recaptcha_v3, builtin_math
+            'captcha_site_key' => '0x4AAAAAAtest_site_key',
+            'captcha_secret_key' => '0x4AAAAAAtest_secret_key',
+            'captcha_on_login' => true,
+            'captcha_on_register' => true,
+            'captcha_on_forgot_password' => true,
         ];
     }
 

@@ -5,13 +5,13 @@ import {
   Building2, Palette, Globe, Layers, Key, Loader2,
   IndianRupee, Sparkles, AlertCircle, RefreshCw, Bell,
   Mail, MessageSquare, Send, Bot, Cpu, Cloud, Radio,
-  Webhook, Zap, ShieldAlert
+  Webhook, Zap, ShieldAlert, Lock, Copy, Check
 } from 'lucide-react';
 import { adminApi } from '../../api';
 
 export default function AdminSettings() {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'gateways' | 'branding' | 'general' | 'resellers' | 'alerts' | 'integrations'>('gateways');
+  const [activeTab, setActiveTab] = useState<'gateways' | 'auth_security' | 'alerts' | 'integrations' | 'branding' | 'general' | 'resellers'>('gateways');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -109,9 +109,37 @@ export default function AdminSettings() {
     enable_cloudflare: false,
     cloudflare_zone_id: '',
     cloudflare_api_token: '',
-    enable_google_oauth: false,
+
+    // Social Auth Integrations
+    enable_google_oauth: true,
     google_client_id: '',
     google_client_secret: '',
+    google_redirect_uri: 'https://resell.infiniforge.cloud/api/v1/auth/callback/google',
+
+    enable_facebook_oauth: true,
+    facebook_app_id: '',
+    facebook_app_secret: '',
+    facebook_redirect_uri: 'https://resell.infiniforge.cloud/api/v1/auth/callback/facebook',
+
+    enable_github_oauth: true,
+    github_client_id: '',
+    github_client_secret: '',
+    github_redirect_uri: 'https://resell.infiniforge.cloud/api/v1/auth/callback/github',
+
+    enable_microsoft_oauth: false,
+    microsoft_client_id: '',
+    microsoft_client_secret: '',
+    microsoft_tenant_id: 'common',
+    microsoft_redirect_uri: 'https://resell.infiniforge.cloud/api/v1/auth/callback/microsoft',
+
+    // Anti-Bot & CAPTCHA Shield
+    enable_captcha: true,
+    captcha_provider: 'turnstile',
+    captcha_site_key: '',
+    captcha_secret_key: '',
+    captcha_on_login: true,
+    captcha_on_register: true,
+    captcha_on_forgot_password: true,
   });
 
   useEffect(() => {
@@ -185,6 +213,7 @@ export default function AdminSettings() {
       <div className="flex border-b border-slate-200 text-xs font-bold gap-2">
         {[
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
+          { id: 'auth_security', label: 'Social Auth & CAPTCHA', icon: ShieldCheck },
           { id: 'alerts', label: 'Alerts & Notifications', icon: Bell },
           { id: 'integrations', label: 'Ecosystem & AI Integrations', icon: Zap },
           { id: 'branding', label: 'White-Label Branding', icon: Palette },
@@ -1064,6 +1093,338 @@ export default function AdminSettings() {
                     placeholder="https://key@o0.ingest.sentry.io/0"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SOCIAL AUTH & ANTI-BOT CAPTCHA */}
+          {activeTab === 'auth_security' && (
+            <div className="space-y-6 text-xs">
+              {/* Header Box */}
+              <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 border border-indigo-500/30 shadow-lg space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 font-bold">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black tracking-tight">Social Auth (SSO) & Bot Defense Security</h2>
+                    <p className="text-xs text-indigo-200">
+                      Configure Google, Facebook, GitHub & Microsoft single sign-on alongside intelligent anti-bot CAPTCHA challenges.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. GOOGLE OAUTH */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-black">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        Google OAuth 2.0 & One-Tap SSO
+                        <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Popular</span>
+                      </h3>
+                      <p className="text-slate-500 text-[11px]">Enables "Continue with Google" one-click registration and login.</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_google_oauth}
+                      onChange={e => updateField('enable_google_oauth', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Google Client ID</label>
+                    <input
+                      type="text"
+                      value={form.google_client_id}
+                      onChange={e => updateField('google_client_id', e.target.value)}
+                      placeholder="123456789-xxxxxx.apps.googleusercontent.com"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Google Client Secret</label>
+                    <input
+                      type="password"
+                      value={form.google_client_secret}
+                      onChange={e => updateField('google_client_secret', e.target.value)}
+                      placeholder="GOCSPX-xxxxxxxxxxxxxx"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="col-span-full">
+                    <label className="block font-semibold text-slate-700 mb-1">Authorized Redirect URI (Add to Google Cloud Console)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={form.google_redirect_uri || 'https://resell.infiniforge.cloud/api/v1/auth/callback/google'}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(form.google_redirect_uri || 'https://resell.infiniforge.cloud/api/v1/auth/callback/google');
+                          setSuccessMsg('Google Redirect URI copied to clipboard!');
+                          setTimeout(() => setSuccessMsg(''), 3000);
+                        }}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl shrink-0 transition-colors cursor-pointer"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. FACEBOOK LOGIN */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                      <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        Facebook Login & Meta Graph API
+                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">Social</span>
+                      </h3>
+                      <p className="text-slate-500 text-[11px]">Allows users and resellers to authenticate using their Facebook credentials.</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_facebook_oauth}
+                      onChange={e => updateField('enable_facebook_oauth', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Facebook App ID</label>
+                    <input
+                      type="text"
+                      value={form.facebook_app_id}
+                      onChange={e => updateField('facebook_app_id', e.target.value)}
+                      placeholder="e.g. 102938475610293"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Facebook App Secret</label>
+                    <input
+                      type="password"
+                      value={form.facebook_app_secret}
+                      onChange={e => updateField('facebook_app_secret', e.target.value)}
+                      placeholder="32-character secret key"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. GITHUB & MICROSOFT OAUTH */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* GitHub */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
+                      <svg className="w-4 h-4" fill="#24292F" viewBox="0 0 24 24">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                      </svg>
+                      <span>GitHub OAuth</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.enable_github_oauth}
+                      onChange={e => updateField('enable_github_oauth', e.target.checked)}
+                      className="rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Client ID</label>
+                    <input
+                      type="text"
+                      value={form.github_client_id}
+                      onChange={e => updateField('github_client_id', e.target.value)}
+                      placeholder="Iv1..."
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Client Secret</label>
+                    <input
+                      type="password"
+                      value={form.github_client_secret}
+                      onChange={e => updateField('github_client_secret', e.target.value)}
+                      placeholder="ghs_..."
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Microsoft Azure AD */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
+                      <svg className="w-4 h-4" viewBox="0 0 23 23">
+                        <path fill="#f35325" d="M1 1h10v10H1z"/>
+                        <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                        <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                        <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                      </svg>
+                      <span>Microsoft Azure AD</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.enable_microsoft_oauth}
+                      onChange={e => updateField('enable_microsoft_oauth', e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Application (Client) ID</label>
+                    <input
+                      type="text"
+                      value={form.microsoft_client_id}
+                      onChange={e => updateField('microsoft_client_id', e.target.value)}
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Client Secret</label>
+                    <input
+                      type="password"
+                      value={form.microsoft_client_secret}
+                      onChange={e => updateField('microsoft_client_secret', e.target.value)}
+                      placeholder="Secret key"
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. ANTI-BOT CAPTCHA PROTECTION */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        Intelligent Anti-Bot Defense & CAPTCHA Shield
+                        <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">Bot Defense</span>
+                      </h3>
+                      <p className="text-slate-500 text-[11px]">Prevents automated credential-stuffing, brute-force spam, and fake registration scripts.</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_captcha}
+                      onChange={e => updateField('enable_captcha', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-1">
+                    <label className="block font-semibold text-slate-700 mb-1">CAPTCHA Provider</label>
+                    <select
+                      value={form.captcha_provider}
+                      onChange={e => updateField('captcha_provider', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="turnstile">Cloudflare Turnstile (Smart / Privacy)</option>
+                      <option value="recaptcha_v2">Google reCAPTCHA v2 (Checkbox)</option>
+                      <option value="recaptcha_v3">Google reCAPTCHA v3 (Invisible Score)</option>
+                      <option value="builtin_math">Built-in Interactive Math Challenge (No Keys)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-1">
+                    <label className="block font-semibold text-slate-700 mb-1">Public Site Key</label>
+                    <input
+                      type="text"
+                      value={form.captcha_site_key}
+                      onChange={e => updateField('captcha_site_key', e.target.value)}
+                      placeholder="0x4AAAAAA..."
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-1">
+                    <label className="block font-semibold text-slate-700 mb-1">Secret Key</label>
+                    <input
+                      type="password"
+                      value={form.captcha_secret_key}
+                      onChange={e => updateField('captcha_secret_key', e.target.value)}
+                      placeholder="0x4AAAAAA..."
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Scope Enforcements */}
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <span className="font-bold text-slate-700 block">Enforcement Scope:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.captcha_on_login}
+                        onChange={e => updateField('captcha_on_login', e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="font-semibold text-slate-700">Protect Sign-In (Login)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.captcha_on_register}
+                        onChange={e => updateField('captcha_on_register', e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="font-semibold text-slate-700">Protect Registration (Signup)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.captcha_on_forgot_password}
+                        onChange={e => updateField('captcha_on_forgot_password', e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="font-semibold text-slate-700">Protect Password Reset</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

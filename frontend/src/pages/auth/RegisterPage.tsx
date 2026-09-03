@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { authApi, saasPlansApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
+import CaptchaWidget from '../../components/common/CaptchaWidget';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -395,10 +397,16 @@ export default function RegisterPage() {
               </div>
             )}
 
+            {/* Anti-Bot Security CAPTCHA */}
+            <CaptchaWidget
+              provider="turnstile"
+              onVerify={() => {}}
+            />
+
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs disabled:opacity-50 mt-4"
+              className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs disabled:opacity-50 mt-4 cursor-pointer"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               {isLoading ? 'Creating Account & Initializing...' : (
@@ -408,6 +416,9 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
+
+          {/* Social Logins & SSO */}
+          <SocialLoginButtons />
 
           <p className="text-center text-xs text-slate-500">
             Already have an account?{' '}
