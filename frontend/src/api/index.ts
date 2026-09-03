@@ -23,6 +23,15 @@ api.interceptors.request.use((config) => {
     config.headers['X-Auth-Token'] = token;
     config.params = { ...config.params, auth_token: token };
   }
+  const user = localStorage.getItem('user');
+  if (user) {
+    try {
+      const u = JSON.parse(user);
+      if (u?.email) {
+        config.headers['X-User-Email'] = u.email;
+      }
+    } catch {}
+  }
   return config;
 });
 

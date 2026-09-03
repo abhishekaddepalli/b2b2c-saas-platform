@@ -51,7 +51,7 @@ Route::prefix('v1')->group(function () {
             ->name('verification.verify');
 
         // Protected auth routes
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware('auth.api')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::post('logout', [AuthController::class, 'logout']);
             Route::post('logout-all', [AuthController::class, 'logoutAll']);
@@ -61,7 +61,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ─── Authenticated routes ─────────────────────────────────────────────────
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth.api')->group(function () {
 
         // ─── Customer-accessible ──────────────────────────────────────────────
         Route::prefix('orders')->group(function () {

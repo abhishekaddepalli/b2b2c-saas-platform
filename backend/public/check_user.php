@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Diagnostic tool to inspect user record and verify authentication (backend public)
+ * Diagnostic tool to inspect user record, roles, tokens, and test Sanctum token resolution
  */
 
 header('Content-Type: application/json');
@@ -18,30 +18,56 @@ $console = $app->make(\Illuminate\Contracts\Console\Kernel::class);
 $console->bootstrap();
 
 $email = $_GET['email'] ?? 'abhishek123.as42@gmail.com';
-$testPass = $_GET['pass'] ?? '';
-
 $user = \App\Models\User::withTrashed()->where('email', $email)->first();
 
-$allUsers = \App\Models\User::withTrashed()->get(['id', 'email', 'status', 'deleted_at'])->toArray();
+$roles = [];
+if ($user) {
+    try {
+        $roles = $user->getRoleNames()->toArray();
+    } catch (\Throwable $e) {
+        $roles = ['error' => $e->getMessage()];
+    }
+}
 
-$authAttemptResult = false;
-$hashCheckResult = false;
-if ($user && $testPass !== '') {
-    $hashCheckResult = \Illuminate\Support\Facades\Hash::check($testPass, $user->password);
-    $authAttemptResult = \Illuminate\Support\Facades\Auth::attempt(['email' => $email, 'password' => $testPass]);
+$tokensInDb = [];
+if ($user) {
+    $tokensInDb = \Illuminate\Support\Facades\DB::table('personal_access_tokens')
+        ->where('tokenable_id', $user->id)
+        ->latest('id')
+        ->limit(10)
+        ->get(['id', 'name', 'tokenable_id', 'expires_at', 'created_at', 'last_used_at'])
+        ->toArray();
+}
+
+$testTokenResult = null;
+if ($user && isset($_GET['create_test_token'])) {
+    $tokenObj = $user->createToken('test-token', ['*'], now()->addYear());
+    $plain = $tokenObj->plainTextToken;
+    $found = \Laravel\Sanctum\PersonalAccessToken::findToken($plain);
+    $testTokenResult = [
+        'plain_token' => $plain,
+        'resolved_successfully' => (bool)$found,
+        'resolved_user_id' => $found?->tokenable_id,
+    ];
+}
+
+$verifyProvidedToken = null;
+if (!empty($_GET['verify_token'])) {
+    $found = \Laravel\Sanctum\PersonalAccessToken::findToken($_GET['verify_token']);
+    $verifyProvidedToken = [
+        'provided' => $_GET['verify_token'],
+        'found' => (bool)$found,
+        'tokenable_id' => $found?->tokenable_id,
+    ];
 }
 
 echo json_encode([
-    'requested_email' => $email,
-    'user_found' => (bool)$user,
     'user_id' => $user?->id,
-    'user_email' => $user?->email,
-    'user_status' => $user?->status,
-    'is_deleted' => (bool)$user?->deleted_at,
-    'password_hash_prefix' => $user ? substr($user->password, 0, 10) : null,
-    'password_length' => $user ? strlen($user->password) : 0,
-    'test_pass_provided' => !empty($testPass),
-    'hash_check_matches' => $hashCheckResult,
-    'auth_attempt_matches' => $authAttemptResult,
-    'all_users_in_db' => $allUsers,
+    'email' => $user?->email,
+    'status' => $user?->status,
+    'roles' => $roles,
+    'tokens_count' => count($tokensInDb),
+    'recent_tokens' => $tokensInDb,
+    'test_token_generation' => $testTokenResult,
+    'verify_token' => $verifyProvidedToken,
 ], JSON_PRETTY_PRINT);
