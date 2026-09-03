@@ -54,20 +54,49 @@ class WalletController extends Controller
         if (!$wallet) {
             $wallet = Wallet::create([
                 'organization_id' => $orgId,
-                'balance' => 0,
                 'available_balance' => 0,
+                'reserved_balance' => 0,
+                'credit_limit' => 0,
                 'currency' => 'INR',
+                'status' => 'active',
             ]);
         }
 
-        $amount = (float)$request->amount;
+        $amount = (float) $request->amount;
+        $balanceBefore = (float) $wallet->available_balance;
 
-        if ($request->type === 'credit') {
-            $wallet->increment('balance', $amount);
-            $wallet->increment('available_balance', $amount);
-        } else {
-            $wallet->decrement('balance', $amount);
+        if ($request->type === 'debit') {
+            $spendable = (float) $wallet->available_balance + (float) $wallet->credit_limit;
+            if ($spendable < $amount) {
+                return response()->json([
+                    'message' => 'Insufficient wallet balance. Available: ₹' . number_format($wallet->available_balance, 2) . ', Spendable reserve: ₹' . number_format($spendable, 2) . '.',
+                ], 422);
+            }
             $wallet->decrement('available_balance', $amount);
+        } else {
+            $wallet->increment('available_balance', $amount);
+        }
+
+        $wallet->last_transaction_at = now();
+        $wallet->save();
+        $balanceAfter = (float) $wallet->available_balance;
+
+        // Record transaction in immutable ledger
+        try {
+            \App\Models\WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'type' => $request->type === 'credit' ? 'credit' : 'debit',
+                'amount' => $amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'currency' => $wallet->currency ?? 'INR',
+                'idempotency_key' => 'adm_adj_' . \Illuminate\Support\Str::uuid(),
+                'description' => $request->description ?: 'Admin manual balance adjustment (' . ucfirst($request->type) . ')',
+                'created_by' => $request->user()?->id,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Ledger write notice should not break transaction response
         }
 
         return response()->json([

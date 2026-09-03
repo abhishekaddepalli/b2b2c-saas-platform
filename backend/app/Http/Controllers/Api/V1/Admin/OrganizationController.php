@@ -86,9 +86,11 @@ class OrganizationController extends Controller
         $wallet = Wallet::firstOrCreate(
             ['organization_id' => $org->id],
             [
-                'balance' => $initialBalance,
                 'available_balance' => $initialBalance,
+                'reserved_balance' => 0,
+                'credit_limit' => 0,
                 'currency' => 'INR',
+                'status' => 'active',
             ]
         );
 
@@ -161,12 +163,19 @@ class OrganizationController extends Controller
             $adj = (float)$request->wallet_adjustment;
             $wallet = $org->wallet ?? Wallet::create([
                 'organization_id' => $org->id,
-                'balance' => 0,
                 'available_balance' => 0,
+                'reserved_balance' => 0,
+                'credit_limit' => 0,
                 'currency' => 'INR',
+                'status' => 'active',
             ]);
-            $wallet->increment('balance', $adj);
-            $wallet->increment('available_balance', $adj);
+            if ($adj < 0) {
+                $wallet->decrement('available_balance', abs($adj));
+            } else {
+                $wallet->increment('available_balance', $adj);
+            }
+            $wallet->last_transaction_at = now();
+            $wallet->save();
         }
 
         return response()->json([
@@ -287,9 +296,11 @@ class OrganizationController extends Controller
         if (!$org->wallet) {
             Wallet::create([
                 'organization_id' => $org->id,
-                'balance' => 0,
                 'available_balance' => 0,
+                'reserved_balance' => 0,
+                'credit_limit' => 0,
                 'currency' => 'INR',
+                'status' => 'active',
             ]);
         }
 

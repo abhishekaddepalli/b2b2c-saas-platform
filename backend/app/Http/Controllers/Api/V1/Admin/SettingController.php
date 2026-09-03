@@ -73,6 +73,50 @@ class SettingController extends Controller
             'bank_account_number' => '50200012345678',
             'bank_ifsc' => 'HDFC0001234',
             'bank_branch' => 'Corporate Banking Branch',
+
+            // Real-Time Alerts & Notification Triggers
+            'alert_email_enabled' => true,
+            'alert_email_recipient' => 'abhishek123.as42@gmail.com',
+            'alert_low_wallet_threshold' => 1000,
+            'alert_on_new_order' => true,
+            'alert_on_failed_payment' => true,
+            'alert_on_new_reseller' => true,
+            'alert_on_system_error' => true,
+
+            // Email / SMTP Dispatch Configuration
+            'enable_smtp' => false,
+            'smtp_host' => 'smtp.mailgun.org',
+            'smtp_port' => 587,
+            'smtp_username' => '',
+            'smtp_password' => '',
+            'smtp_encryption' => 'tls',
+            'smtp_from_address' => 'notifications@infiniforge.cloud',
+            'smtp_from_name' => 'SaaS Platform Alerts',
+
+            // WhatsApp, Telegram & Slack Alert Channels
+            'enable_whatsapp' => false,
+            'whatsapp_phone_number_id' => '',
+            'whatsapp_access_token' => '',
+            'enable_telegram' => false,
+            'telegram_bot_token' => '',
+            'telegram_chat_id' => '',
+            'enable_slack' => false,
+            'slack_webhook_url' => '',
+
+            // Third-Party Ecosystem Integrations
+            'enable_openai' => false,
+            'openai_api_key' => '',
+            'openai_model' => 'gpt-4o-mini',
+            'enable_ga4' => false,
+            'ga4_measurement_id' => '',
+            'enable_sentry' => false,
+            'sentry_dsn' => '',
+            'enable_cloudflare' => false,
+            'cloudflare_zone_id' => '',
+            'cloudflare_api_token' => '',
+            'enable_google_oauth' => false,
+            'google_client_id' => '',
+            'google_client_secret' => '',
         ];
     }
 
