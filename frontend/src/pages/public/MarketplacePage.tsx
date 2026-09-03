@@ -135,9 +135,9 @@ export default function MarketplacePage() {
   const services: Service[] = servicesData?.data ?? [];
   const recProducts = recData?.recommended_products ?? [];
 
-  const handleOpenOrderModal = (type: 'product' | 'service', item: any) => {
+  const handleOpenOrderModal = (type: 'product' | 'service', item: any, defaultBeneficiary: 'customer' | 'self' = 'customer') => {
     setActiveModalItem({ type, item });
-    setOrderCustomerId('');
+    setOrderCustomerId(defaultBeneficiary === 'customer' ? (customers[0]?.id || 'customer') : '');
     setOrderQuantity(1);
     setOrderInterval('monthly');
     setOrderAlert(null);
@@ -388,14 +388,24 @@ export default function MarketplacePage() {
                           <PriceDisplay pricing={p.pricing} role={role} />
 
                           {isReseller ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOrderModal('product', p)}
-                              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span>Wholesale Order</span>
-                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenOrderModal('product', p, 'customer')}
+                                className="py-2.5 px-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-[11px] rounded-xl shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <User className="w-3.5 h-3.5" />
+                                <span>For Client</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenOrderModal('product', p, 'self')}
+                                className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5" />
+                                <span>For Self</span>
+                              </button>
+                            </div>
                           ) : (
                             <Link
                               to={`${basePath}/products/${p.slug}`}
@@ -486,14 +496,24 @@ export default function MarketplacePage() {
                           <PriceDisplay pricing={(s as any).pricing ?? s.plans?.[0]?.pricing} role={role} />
 
                           {isReseller ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOrderModal('service', s)}
-                              className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                            >
-                              <Zap className="w-3.5 h-3.5" />
-                              <span>Provision Service</span>
-                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenOrderModal('service', s, 'customer')}
+                                className="py-2.5 px-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-[11px] rounded-xl shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <User className="w-3.5 h-3.5" />
+                                <span>Assign Client</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenOrderModal('service', s, 'self')}
+                                className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <Zap className="w-3.5 h-3.5" />
+                                <span>For Self</span>
+                              </button>
+                            </div>
                           ) : (
                             <Link
                               to={`${basePath}/services/${s.slug}`}
@@ -654,27 +674,66 @@ export default function MarketplacePage() {
                     </div>
                   )}
 
-                  {/* Assign to Customer Selector */}
+                  {/* Beneficiary Selector */}
                   <div className="space-y-1.5">
-                    <label className="block font-bold text-slate-300 flex items-center justify-between">
-                      <span>Assign to Customer Account:</span>
-                      <Link to="/reseller/customers" className="text-[10px] text-indigo-400 hover:underline">
-                        + New Customer
-                      </Link>
-                    </label>
-                    <select
-                      value={orderCustomerId}
-                      onChange={e => setOrderCustomerId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="">Reseller Organization Inventory (Self)</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.email}) {c.company ? `— ${c.company}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block font-bold text-slate-300">Procurement Beneficiary</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOrderCustomerId(customers[0]?.id || 'customer')}
+                        className={`p-2.5 rounded-xl border text-left font-bold transition-all flex items-center gap-2 ${
+                          orderCustomerId !== ''
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-500'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'
+                        }`}
+                      >
+                        <User className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <div>
+                          <div className="text-xs">Client Account</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Assign & bill customer</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setOrderCustomerId('')}
+                        className={`p-2.5 rounded-xl border text-left font-bold transition-all flex items-center gap-2 ${
+                          orderCustomerId === ''
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-500'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'
+                        }`}
+                      >
+                        <ShoppingCart className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <div>
+                          <div className="text-xs">Self (Reseller)</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Internal org inventory</div>
+                        </div>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Assign to Customer Selector if Client mode */}
+                  {orderCustomerId !== '' && (
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-300 flex items-center justify-between">
+                        <span>Target Customer Account:</span>
+                        <Link to="/reseller/customers" className="text-[10px] text-indigo-400 hover:underline">
+                          + New Customer
+                        </Link>
+                      </label>
+                      <select
+                        value={orderCustomerId}
+                        onChange={e => setOrderCustomerId(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.email}) {c.company ? `— ${c.company}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Wallet Check Footer */}
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px]">

@@ -128,6 +128,7 @@ export const resellerApi = {
   profit: (params?: object) => api.get('/reseller/profit', { params }),
   profitChart: () => api.get('/reseller/profit/chart'),
   services: (params?: object) => api.get('/reseller/services', { params }),
+  assignService: (data: object) => api.post('/reseller/services/assign', data),
   subscriptions: (params?: object) => api.get('/reseller/subscriptions', { params }),
 
   // Onboarding & KYC
