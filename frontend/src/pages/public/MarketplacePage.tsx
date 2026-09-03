@@ -112,7 +112,7 @@ export default function MarketplacePage() {
   const recProducts = recData?.recommended_products ?? [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+    <div className="w-full bg-slate-950 text-slate-100 rounded-3xl p-4 sm:p-6 lg:p-8 space-y-10 border border-slate-800/80 shadow-2xl">
       {/* Hero & Sponsored Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 sm:p-10 border border-indigo-500/20 shadow-2xl">
         <div className="relative z-10 max-w-2xl space-y-3">

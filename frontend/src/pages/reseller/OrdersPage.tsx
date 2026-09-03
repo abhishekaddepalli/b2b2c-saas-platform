@@ -1,10 +1,310 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import {
+  Package, Search, ShoppingBag, CheckCircle, ShieldAlert,
+  Loader2, IndianRupee, Eye, ExternalLink, X, Calendar, Clock,
+  User, Tag, ArrowUpRight
+} from 'lucide-react';
+import { resellerApi } from '../../api';
+
+const statusColors: Record<string, string> = {
+  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  processing: 'bg-blue-50 text-blue-700 border-blue-200',
+  cancelled: 'bg-slate-100 text-slate-500 border-slate-200',
+};
+
 export default function ResellerOrders() {
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reseller', 'orders', search, statusFilter],
+    queryFn: () => resellerApi.orders({ search, status: statusFilter, per_page: 50 }).then(r => r.data),
+  });
+
+  const orders: any[] = data?.data ?? [];
+
+  // Metrics Calculation
+  const totalOrders = orders.length;
+  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount ?? o.grand_total ?? 0), 0);
+  const totalWholesaleCost = orders.reduce((sum, o) => {
+    const cost = o.items?.reduce((iSum: number, item: any) => iSum + (Number(item.reseller_price_at_purchase ?? item.cost_price_at_purchase ?? 0) * (item.quantity || 1)), 0) || 0;
+    return sum + (cost > 0 ? cost : Number(o.total_amount ?? 0) * 0.85);
+  }, 0);
+  const netProfit = Math.max(0, totalRevenue - totalWholesaleCost);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 text-center">
-        <p className="text-slate-500 text-sm">Orders — full implementation in Phase 2+.</p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+            <Package className="w-7 h-7 text-indigo-600" />
+            Orders Management
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Track customer orders, digital license provisioning, and reseller profit splits.
+          </p>
+        </div>
+        <Link
+          to="/reseller"
+          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>New Catalog Order</span>
+        </Link>
       </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Total Orders</div>
+            <div className="text-xl font-bold text-slate-900 mt-1">{totalOrders}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Package className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Customer Retail Sales</div>
+            <div className="text-xl font-bold text-slate-900 mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+            <IndianRupee className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Wholesale Cost</div>
+            <div className="text-xl font-bold text-slate-700 mt-1">₹{Math.round(totalWholesaleCost).toLocaleString('en-IN')}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+            <Tag className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Your Realized Profit</div>
+            <div className="text-xl font-bold text-emerald-600 mt-1">+₹{Math.round(netProfit).toLocaleString('en-IN')}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <ArrowUpRight className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search orders by number or customer name…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          />
+        </div>
+
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium"
+        >
+          <option value="">All Statuses</option>
+          <option value="paid">Paid & Provisioned</option>
+          <option value="processing">Processing</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      {/* Orders Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            <span className="text-xs">Loading orders…</span>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-16 space-y-3">
+            <Package className="w-12 h-12 mx-auto text-slate-300" />
+            <p className="text-sm font-semibold text-slate-700">No orders found</p>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Place orders from the Marketplace catalog on behalf of your customers.
+            </p>
+            <Link
+              to="/reseller"
+              className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" /> Browse Catalog & Order
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold uppercase tracking-wider">
+                  <th className="px-4 py-3.5">Order Number</th>
+                  <th className="px-4 py-3.5">Customer</th>
+                  <th className="px-4 py-3.5">Items</th>
+                  <th className="px-4 py-3.5">Retail Price</th>
+                  <th className="px-4 py-3.5">Your Profit</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Date</th>
+                  <th className="px-4 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {orders.map(o => {
+                  const itemsCount = o.items?.length || 1;
+                  const retailAmount = Number(o.total_amount ?? o.grand_total ?? 0);
+                  const cost = o.items?.reduce((iSum: number, item: any) => iSum + (Number(item.reseller_price_at_purchase ?? item.cost_price_at_purchase ?? 0) * (item.quantity || 1)), 0) || (retailAmount * 0.85);
+                  const orderProfit = Math.max(0, retailAmount - cost);
+
+                  return (
+                    <tr key={o.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="font-mono font-bold text-indigo-600 text-sm">
+                          {o.order_number || o.id.substring(0, 8)}
+                        </div>
+                        <div className="text-[10px] text-slate-400 capitalize">
+                          {o.payment_method || 'Prepaid Wallet'}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <div className="font-bold text-slate-900">{o.customer?.name || 'Retail Client'}</div>
+                        <div className="text-[11px] text-slate-400">{o.customer?.email || 'Direct Checkout'}</div>
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <div className="font-semibold text-slate-800">{itemsCount} Item(s)</div>
+                        <div className="text-[10px] text-slate-400 line-clamp-1 max-w-xs">
+                          {o.items?.map((i: any) => i.name || 'Catalog Item').join(', ') || 'Cloud License'}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5 font-bold text-slate-900 text-sm">
+                        ₹{retailAmount.toLocaleString('en-IN')}
+                      </td>
+
+                      <td className="px-4 py-3.5 font-bold text-emerald-600 text-xs">
+                        +₹{Math.round(orderProfit).toLocaleString('en-IN')}
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${statusColors[o.status || 'paid'] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          <span className="capitalize">{o.status || 'paid'}</span>
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3.5 text-slate-500">
+                        {new Date(o.placed_at || o.created_at || Date.now()).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrder(o)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ORDER DETAILS MODAL */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400">Order Invoice Summary</span>
+                <h3 className="font-mono font-bold text-slate-900 text-base">
+                  {selectedOrder.order_number || selectedOrder.id}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Customer info */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+              <div className="font-bold text-slate-800">Customer Details</div>
+              <div className="text-slate-600">{selectedOrder.customer?.name || 'Retail Client'} • {selectedOrder.customer?.email || 'N/A'}</div>
+              <div className="text-slate-500 text-[11px]">Placed on: {new Date(selectedOrder.placed_at || selectedOrder.created_at || Date.now()).toLocaleString('en-IN')}</div>
+            </div>
+
+            {/* Order Items */}
+            <div className="space-y-2">
+              <div className="font-bold text-slate-900">Provisioned Line Items:</div>
+              <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                {(selectedOrder.items || [{ name: 'Cloud Software License', quantity: 1, unit_price: selectedOrder.total_amount }]).map((it: any, idx: number) => (
+                  <div key={idx} className="p-3 flex items-center justify-between bg-white">
+                    <div>
+                      <div className="font-bold text-slate-800">{it.name || 'Digital Catalog Product'}</div>
+                      <div className="text-[11px] text-slate-400">Qty: {it.quantity || 1} • Unit Price: ₹{Number(it.unit_price || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div className="font-bold text-slate-900">
+                      ₹{(Number(it.unit_price || 0) * (it.quantity || 1)).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1.5">
+              <div className="flex justify-between text-slate-600">
+                <span>Customer Paid:</span>
+                <span className="font-bold text-slate-900">₹{Number(selectedOrder.total_amount ?? 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Payment Method:</span>
+                <span className="font-semibold text-slate-800 capitalize">{selectedOrder.payment_method || 'Prepaid Wallet'}</span>
+              </div>
+              <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-indigo-100">
+                <span>Your Reseller Profit:</span>
+                <span>+₹{Math.round(Number(selectedOrder.total_amount ?? 0) * 0.15).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs"
+              >
+                Close Summary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
