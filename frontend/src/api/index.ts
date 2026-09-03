@@ -171,6 +171,10 @@ export const adminApi = {
 
   // Users
   users: (params?: object) => api.get('/admin/users', { params }),
+  user: (id: string) => api.get(`/admin/users/${id}`),
+  createUser: (data: object) => api.post('/admin/users', data),
+  updateUser: (id: string, data: object) => api.put(`/admin/users/${id}`, data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 
   // Wallet management
   wallets: (params?: object) => api.get('/admin/wallets', { params }),
