@@ -229,6 +229,8 @@ export const adminApi = {
   // Offers / Coupons / Ads
   offers: (params?: object) => api.get('/admin/offers', { params }),
   createOffer: (data: object) => api.post('/admin/offers', data),
+  updateOffer: (id: string, data: object) => api.put(`/admin/offers/${id}`, data),
+  deleteOffer: (id: string) => api.delete(`/admin/offers/${id}`),
   coupons: (params?: object) => api.get('/admin/coupons', { params }),
   createCoupon: (data: object) => api.post('/admin/coupons', data),
   advertisements: (params?: object) => api.get('/admin/advertisements', { params }),
