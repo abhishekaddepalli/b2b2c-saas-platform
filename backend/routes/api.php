@@ -183,6 +183,8 @@ Route::prefix('v1')->group(function () {
             Route::put('settings', [\App\Http\Controllers\Api\V1\Admin\SettingController::class, 'update']);
 
             Route::get('audit-logs', [\App\Http\Controllers\Api\V1\Admin\AuditLogController::class, 'index']);
+            Route::get('audit-logs/stats', [\App\Http\Controllers\Api\V1\Admin\AuditLogController::class, 'stats']);
+            Route::get('audit-logs/{id}', [\App\Http\Controllers\Api\V1\Admin\AuditLogController::class, 'show']);
             Route::get('system-health', [\App\Http\Controllers\Api\V1\Admin\HealthCheckController::class, 'detailedHealth']);
             Route::apiResource('saas-plans', \App\Http\Controllers\Api\V1\Admin\SaasPlanAdminController::class);
 

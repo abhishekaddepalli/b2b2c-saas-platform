@@ -223,6 +223,8 @@ export const adminApi = {
 
   // Audit logs
   auditLogs: (params?: object) => api.get('/admin/audit-logs', { params }),
+  auditLog: (id: string) => api.get(`/admin/audit-logs/${id}`),
+  auditLogStats: () => api.get('/admin/audit-logs/stats'),
 
   // Offers / Coupons / Ads
   offers: (params?: object) => api.get('/admin/offers', { params }),
