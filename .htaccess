@@ -25,23 +25,27 @@
 
     # Route /install_api.php to backend/public/install_api.php
     RewriteCond %{REQUEST_URI} ^/install_api.php
-    RewriteRule ^install_api.php$ backend/public/install_api.php [L,QSA]
+    RewriteRule ^install_api.php$ backend/public/install_api.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Route /check_pdo.php to backend/public/check_pdo.php
     RewriteCond %{REQUEST_URI} ^/check_pdo.php
-    RewriteRule ^check_pdo.php$ backend/public/check_pdo.php [L,QSA]
+    RewriteRule ^check_pdo.php$ backend/public/check_pdo.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Route /reset_admin.php to backend/public/reset_admin.php
     RewriteCond %{REQUEST_URI} ^/reset_admin.php
-    RewriteRule ^reset_admin.php$ backend/public/reset_admin.php [L,QSA]
+    RewriteRule ^reset_admin.php$ backend/public/reset_admin.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
+
+    # Route /recover_db.php to backend/public/recover_db.php
+    RewriteCond %{REQUEST_URI} ^/recover_db.php
+    RewriteRule ^recover_db.php$ backend/public/recover_db.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Route /check_user.php to backend/public/check_user.php
     RewriteCond %{REQUEST_URI} ^/check_user.php
-    RewriteRule ^check_user.php$ backend/public/check_user.php [L,QSA]
+    RewriteRule ^check_user.php$ backend/public/check_user.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Route /test_api_call.php to backend/public/test_api_call.php
     RewriteCond %{REQUEST_URI} ^/test_api_call.php
-    RewriteRule ^test_api_call.php$ backend/public/test_api_call.php [L,QSA]
+    RewriteRule ^test_api_call.php$ backend/public/test_api_call.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Serve static files and existing directories directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]
