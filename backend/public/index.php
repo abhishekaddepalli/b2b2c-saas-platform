@@ -4,17 +4,35 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
-// Force cPanel-safe drivers so misconfigured Redis never hangs the application
+// Explicitly load backend/.env into PHP environment before booting Laravel
+$envFile = dirname(__DIR__) . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) continue;
+        if (str_contains($line, '=')) {
+            [$k, $v] = explode('=', $line, 2);
+            $k = trim($k);
+            $v = trim($v, " \t\n\r\0\x0B\"'");
+            putenv("{$k}={$v}");
+            $_ENV[$k] = $v;
+            $_SERVER[$k] = $v;
+        }
+    }
+}
+
+// Guarantee cPanel production drivers
+putenv('DB_CONNECTION=mysql');
+$_ENV['DB_CONNECTION'] = 'mysql';
 putenv('CACHE_STORE=file');
 putenv('CACHE_DRIVER=file');
 putenv('SESSION_DRIVER=file');
 putenv('QUEUE_CONNECTION=sync');
-putenv('REDIS_HOST=127.0.0.1');
 $_ENV['CACHE_STORE'] = 'file';
 $_ENV['CACHE_DRIVER'] = 'file';
 $_ENV['SESSION_DRIVER'] = 'file';
 $_ENV['QUEUE_CONNECTION'] = 'sync';
-$_ENV['REDIS_HOST'] = '127.0.0.1';
 
 // Restore Authorization header if stripped by LiteSpeed / Apache FastCGI
 $authToken = null;

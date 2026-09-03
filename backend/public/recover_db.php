@@ -76,6 +76,24 @@ if ($connSuccess) {
         @unlink($basePath . '/bootstrap/cache/packages.php');
         @unlink($basePath . '/bootstrap/cache/services.php');
 
+        if (file_exists($envPath)) {
+            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || str_starts_with($line, '#')) continue;
+                if (str_contains($line, '=')) {
+                    [$k, $v] = explode('=', $line, 2);
+                    $k = trim($k);
+                    $v = trim($v, " \t\n\r\0\x0B\"'");
+                    putenv("{$k}={$v}");
+                    $_ENV[$k] = $v;
+                    $_SERVER[$k] = $v;
+                }
+            }
+        }
+        putenv('DB_CONNECTION=mysql');
+        $_ENV['DB_CONNECTION'] = 'mysql';
+
         if (!defined('LARAVEL_START')) {
             define('LARAVEL_START', microtime(true));
         }
