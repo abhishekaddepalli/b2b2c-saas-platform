@@ -13,6 +13,27 @@ export interface Organization {
   wallet_enabled: boolean;
   currency: string;
   brand_name?: string;
+  pricing_tier?: string;
+  credit_limit?: number;
+  min_wallet_balance?: number;
+  wallet?: {
+    id?: string;
+    balance: number;
+    available_balance: number;
+    currency: string;
+  };
+  users?: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
+  metadata?: {
+    margin_percentage?: number;
+    saas_plan?: string;
+    assigned_services?: string[];
+    assigned_products?: string[];
+    service_margins?: Record<string, number>;
+  };
   created_at?: string;
 }
 

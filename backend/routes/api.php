@@ -147,6 +147,9 @@ Route::prefix('v1')->group(function () {
             Route::post('organizations/{id}/status', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'updateStatus']);
             Route::post('organizations/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'approve']);
             Route::post('organizations/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'reject']);
+            Route::post('organizations/{id}/adjust-margin', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'adjustMargin']);
+            Route::post('organizations/{id}/assign-plan', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'assignPlan']);
+            Route::post('organizations/{id}/assign-services', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'assignServices']);
 
             Route::apiResource('users', \App\Http\Controllers\Api\V1\Admin\UserController::class);
             Route::apiResource('offers', \App\Http\Controllers\Api\V1\Admin\OfferController::class);

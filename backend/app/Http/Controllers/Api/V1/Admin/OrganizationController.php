@@ -4,45 +4,118 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
+use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class OrganizationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Organization::with(['wallet', 'users']);
+        $query = Organization::with([
+            'wallet:id,organization_id,balance,available_balance,currency',
+            'users:id,name,email'
+        ]);
 
-        if ($request->status) {
+        if ($request->filled('search')) {
+            $s = '%' . trim($request->search) . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', $s)
+                  ->orWhere('slug', 'like', $s)
+                  ->orWhere('brand_name', 'like', $s)
+                  ->orWhere('support_email', 'like', $s);
+            });
+        }
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        if ($request->onboarding_status) {
+        if ($request->filled('onboarding_status')) {
             $query->where('onboarding_status', $request->onboarding_status);
         }
-        if ($request->type) {
+        if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
-        return response()->json($query->paginate($request->per_page ?? 20));
+        return response()->json($query->latest()->paginate($request->per_page ?? 25));
     }
 
     public function store(Request $request): JsonResponse
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'unique:organizations,slug'],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:organizations,slug'],
             'type' => ['nullable', 'in:platform,reseller'],
+            'pricing_tier' => ['nullable', 'string'],
+            'margin_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'credit_limit' => ['nullable', 'numeric', 'min:0'],
+            'owner_email' => ['nullable', 'email'],
+            'owner_password' => ['nullable', 'string', 'min:6'],
         ]);
+
+        $slug = $request->filled('slug')
+            ? Str::slug($request->slug)
+            : Str::slug($request->name) . '-' . Str::random(4);
+
+        $metadata = [
+            'margin_percentage' => (float)($request->margin_percentage ?? 15.0),
+            'saas_plan' => $request->saas_plan ?? 'pro',
+            'assigned_services' => $request->assigned_services ?? [],
+            'assigned_products' => $request->assigned_products ?? [],
+        ];
 
         $org = Organization::create([
             'name' => $request->name,
-            'slug' => $request->slug,
+            'slug' => $slug,
             'type' => $request->type ?? 'reseller',
-            'status' => 'pending',
-            'onboarding_status' => 'draft',
+            'status' => $request->status ?? 'active',
+            'onboarding_status' => 'approved',
+            'pricing_tier' => $request->pricing_tier ?? 'standard',
+            'credit_limit' => $request->credit_limit ?? 0,
+            'brand_name' => $request->brand_name ?? $request->name,
+            'support_email' => $request->support_email ?? $request->owner_email,
+            'support_phone' => $request->support_phone,
+            'wallet_enabled' => true,
+            'white_label_enabled' => $request->boolean('white_label_enabled', true),
+            'metadata' => $metadata,
         ]);
 
-        return response()->json(['message' => 'Organization created.', 'data' => $org], 201);
+        // Ensure wallet exists with starting balance if specified
+        $initialBalance = (float)($request->initial_wallet_balance ?? 0);
+        $wallet = Wallet::firstOrCreate(
+            ['organization_id' => $org->id],
+            [
+                'balance' => $initialBalance,
+                'available_balance' => $initialBalance,
+                'currency' => 'INR',
+            ]
+        );
+
+        // Optionally create / attach owner user
+        if ($request->filled('owner_email')) {
+            $owner = User::firstOrNew(['email' => $request->owner_email]);
+            $owner->name = $request->owner_name ?? $request->name . ' Admin';
+            if ($request->filled('owner_password')) {
+                $owner->password = $request->owner_password;
+            } elseif (!$owner->exists) {
+                $owner->password = 'Reseller@1234';
+            }
+            $owner->status = 'active';
+            $owner->email_verified_at = now();
+            $owner->current_organization_id = $org->id;
+            $owner->save();
+
+            $resellerRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'RESELLER', 'guard_name' => 'web']);
+            $owner->assignRole($resellerRole);
+
+            $org->users()->syncWithoutDetaching([$owner->id => ['role_within_org' => 'owner', 'status' => 'active']]);
+        }
+
+        return response()->json([
+            'message' => 'Reseller organization created successfully.',
+            'data' => $org->load(['wallet', 'users']),
+        ], 201);
     }
 
     public function show(string $id): JsonResponse
@@ -55,13 +128,51 @@ class OrganizationController extends Controller
     {
         $org = Organization::findOrFail($id);
 
-        $org->update($request->only([
+        $data = $request->only([
             'name', 'brand_name', 'support_email', 'support_phone',
             'pricing_tier', 'credit_limit', 'min_wallet_balance', 'auto_recharge_threshold',
             'wallet_enabled', 'white_label_enabled', 'custom_domain_enabled', 'status'
-        ]));
+        ]);
 
-        return response()->json(['message' => 'Organization updated.', 'data' => $org]);
+        if ($request->filled('slug')) {
+            $data['slug'] = Str::slug($request->slug);
+        }
+
+        // Merge metadata (margin_percentage, saas_plan, assigned_services, assigned_products)
+        $meta = $org->metadata ?? [];
+        if ($request->has('margin_percentage')) {
+            $meta['margin_percentage'] = (float)$request->margin_percentage;
+        }
+        if ($request->has('saas_plan')) {
+            $meta['saas_plan'] = $request->saas_plan;
+        }
+        if ($request->has('assigned_services')) {
+            $meta['assigned_services'] = $request->assigned_services;
+        }
+        if ($request->has('assigned_products')) {
+            $meta['assigned_products'] = $request->assigned_products;
+        }
+        $data['metadata'] = $meta;
+
+        $org->update($data);
+
+        // Adjust wallet balance directly if requested
+        if ($request->filled('wallet_adjustment') && (float)$request->wallet_adjustment != 0) {
+            $adj = (float)$request->wallet_adjustment;
+            $wallet = $org->wallet ?? Wallet::create([
+                'organization_id' => $org->id,
+                'balance' => 0,
+                'available_balance' => 0,
+                'currency' => 'INR',
+            ]);
+            $wallet->increment('balance', $adj);
+            $wallet->increment('available_balance', $adj);
+        }
+
+        return response()->json([
+            'message' => 'Organization updated successfully.',
+            'data' => $org->fresh(['wallet', 'users']),
+        ]);
     }
 
     public function destroy(string $id): JsonResponse
@@ -80,20 +191,84 @@ class OrganizationController extends Controller
     }
 
     /**
+     * Adjust Reseller Margin & Pricing Tier
+     */
+    public function adjustMargin(Request $request, string $id): JsonResponse
+    {
+        $org = Organization::findOrFail($id);
+
+        $request->validate([
+            'margin_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
+            'pricing_tier' => ['nullable', 'string'],
+        ]);
+
+        $meta = $org->metadata ?? [];
+        $meta['margin_percentage'] = (float)$request->margin_percentage;
+
+        $org->update([
+            'metadata' => $meta,
+            'pricing_tier' => $request->pricing_tier ?? $org->pricing_tier ?? 'standard',
+        ]);
+
+        return response()->json([
+            'message' => 'Reseller margin updated successfully.',
+            'data' => $org,
+        ]);
+    }
+
+    /**
+     * Change Reseller SaaS Subscription Plan
+     */
+    public function assignPlan(Request $request, string $id): JsonResponse
+    {
+        $org = Organization::findOrFail($id);
+
+        $request->validate([
+            'saas_plan' => ['required', 'string'],
+        ]);
+
+        $meta = $org->metadata ?? [];
+        $meta['saas_plan'] = $request->saas_plan;
+        $org->update(['metadata' => $meta]);
+
+        return response()->json([
+            'message' => "SaaS plan updated to '{$request->saas_plan}' successfully.",
+            'data' => $org,
+        ]);
+    }
+
+    /**
+     * Assign / Unassign Products and Services to Reseller
+     */
+    public function assignServices(Request $request, string $id): JsonResponse
+    {
+        $org = Organization::findOrFail($id);
+
+        $meta = $org->metadata ?? [];
+        if ($request->has('assigned_services')) {
+            $meta['assigned_services'] = (array)$request->assigned_services;
+        }
+        if ($request->has('assigned_products')) {
+            $meta['assigned_products'] = (array)$request->assigned_products;
+        }
+        if ($request->has('service_margins')) {
+            $meta['service_margins'] = (array)$request->service_margins;
+        }
+
+        $org->update(['metadata' => $meta]);
+
+        return response()->json([
+            'message' => 'Assigned services & products saved successfully.',
+            'data' => $org,
+        ]);
+    }
+
+    /**
      * Approve Reseller Onboarding Application & Configure Governance Controls.
      */
     public function approve(Request $request, string $id): JsonResponse
     {
         $org = Organization::findOrFail($id);
-
-        $request->validate([
-            'pricing_tier' => ['nullable', 'string', 'in:standard,vip,enterprise,custom'],
-            'credit_limit' => ['nullable', 'numeric', 'min:0'],
-            'min_wallet_balance' => ['nullable', 'numeric', 'min:0'],
-            'wallet_enabled' => ['nullable', 'boolean'],
-            'white_label_enabled' => ['nullable', 'boolean'],
-            'custom_domain_enabled' => ['nullable', 'boolean'],
-        ]);
 
         $org->update([
             'status' => 'active',
@@ -101,17 +276,16 @@ class OrganizationController extends Controller
             'pricing_tier' => $request->pricing_tier ?? $org->pricing_tier ?? 'standard',
             'credit_limit' => $request->credit_limit ?? $org->credit_limit ?? 0,
             'min_wallet_balance' => $request->min_wallet_balance ?? $org->min_wallet_balance ?? 0,
-            'wallet_enabled' => $request->has('wallet_enabled') ? $request->boolean('wallet_enabled') : $org->wallet_enabled,
-            'white_label_enabled' => $request->has('white_label_enabled') ? $request->boolean('white_label_enabled') : $org->white_label_enabled,
-            'custom_domain_enabled' => $request->has('custom_domain_enabled') ? $request->boolean('custom_domain_enabled') : $org->custom_domain_enabled,
+            'wallet_enabled' => true,
+            'white_label_enabled' => true,
             'approved_at' => now(),
-            'approved_by' => $request->user()->id,
+            'approved_by' => $request->user()?->id,
             'rejection_reason' => null,
         ]);
 
         // Ensure wallet exists
         if (!$org->wallet) {
-            \App\Models\Wallet::create([
+            Wallet::create([
                 'organization_id' => $org->id,
                 'balance' => 0,
                 'available_balance' => 0,

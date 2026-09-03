@@ -160,7 +160,12 @@ export const adminApi = {
   // Organizations & Onboarding Approval
   organizations: (params?: object) => api.get('/admin/organizations', { params }),
   organization: (id: string) => api.get(`/admin/organizations/${id}`),
+  createOrganization: (data: object) => api.post('/admin/organizations', data),
+  updateOrganization: (id: string, data: object) => api.put(`/admin/organizations/${id}`, data),
   updateOrgStatus: (id: string, status: string) => api.post(`/admin/organizations/${id}/status`, { status }),
+  adjustOrgMargin: (id: string, data: object) => api.post(`/admin/organizations/${id}/adjust-margin`, data),
+  assignOrgPlan: (id: string, data: object) => api.post(`/admin/organizations/${id}/assign-plan`, data),
+  assignOrgServices: (id: string, data: object) => api.post(`/admin/organizations/${id}/assign-services`, data),
   approveOrg: (id: string, data?: object) => api.post(`/admin/organizations/${id}/approve`, data),
   rejectOrg: (id: string, data: object) => api.post(`/admin/organizations/${id}/reject`, data),
 
