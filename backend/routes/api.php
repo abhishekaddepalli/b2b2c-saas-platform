@@ -43,12 +43,9 @@ Route::prefix('v1')->group(function () {
 
     // ─── Auth ─────────────────────────────────────────────────────────────────
     Route::prefix('auth')->group(function () {
-        Route::post('register', [AuthController::class, 'register'])
-            ->middleware('throttle:60,1');
-        Route::post('login', [AuthController::class, 'login'])
-            ->middleware('throttle:60,1');
-        Route::post('forgot-password', [AuthController::class, 'forgotPassword'])
-            ->middleware('throttle:60,1');
+        Route::post('register', [AuthController::class, 'register']);
+        Route::post('login', [AuthController::class, 'login']);
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
         Route::get('verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])
             ->name('verification.verify');
@@ -58,14 +55,13 @@ Route::prefix('v1')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::post('logout', [AuthController::class, 'logout']);
             Route::post('logout-all', [AuthController::class, 'logoutAll']);
-            Route::post('resend-verification', [AuthController::class, 'resendVerificationEmail'])
-                ->middleware('throttle:3,1');
+            Route::post('resend-verification', [AuthController::class, 'resendVerificationEmail']);
             Route::post('change-password', [AuthController::class, 'changePassword']);
         });
     });
 
     // ─── Authenticated routes ─────────────────────────────────────────────────
-    Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
 
         // ─── Customer-accessible ──────────────────────────────────────────────
         Route::prefix('orders')->group(function () {

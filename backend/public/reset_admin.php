@@ -1,13 +1,40 @@
 <?php
 
 /**
- * Emergency Direct Password Sync Utility (Backend Entrypoint)
+ * Emergency Direct Password Sync & Environment Sanitization Utility (backend entrypoint)
  * Usage: https://resell.infiniforge.cloud/reset_admin.php?password=YOUR_PASSWORD
  */
 
 header('Content-Type: text/html; charset=utf-8');
 
 $basePath = dirname(__DIR__);
+
+// Clean .env of any redis or hanging drivers
+$envPath = $basePath . '/.env';
+if (file_exists($envPath)) {
+    $envContent = file_get_contents($envPath);
+    $fixes = [
+        'CACHE_DRIVER' => 'file',
+        'CACHE_STORE' => 'file',
+        'SESSION_DRIVER' => 'file',
+        'QUEUE_CONNECTION' => 'sync',
+        'REDIS_HOST' => '127.0.0.1',
+    ];
+    foreach ($fixes as $k => $v) {
+        if (preg_match("/^{$k}=.*/m", $envContent)) {
+            $envContent = preg_replace("/^{$k}=.*/m", "{$k}={$v}", $envContent);
+        } else {
+            $envContent .= "\n{$k}={$v}";
+        }
+    }
+    file_put_contents($envPath, $envContent);
+}
+
+// Clear any stale config cache
+@unlink($basePath . '/bootstrap/cache/config.php');
+@unlink($basePath . '/bootstrap/cache/routes-v7.php');
+@unlink($basePath . '/bootstrap/cache/packages.php');
+@unlink($basePath . '/bootstrap/cache/services.php');
 
 $email = $_GET['email'] ?? 'abhishek123.as42@gmail.com';
 $password = $_GET['password'] ?? 'Admin@1234';
@@ -65,7 +92,7 @@ echo "<!DOCTYPE html>
 <body>
     <div class='card'>
         <h1>Account Synchronized!</h1>
-        <p>Your master Super Admin account has been activated and all demo users purged.</p>
+        <p>Your master Super Admin account has been activated, cache purged, and all demo users removed.</p>
         <div class='box'>
             <div><strong>Email:</strong> " . htmlspecialchars($email) . "</div>
             <div><strong>Password:</strong> " . htmlspecialchars($password) . "</div>

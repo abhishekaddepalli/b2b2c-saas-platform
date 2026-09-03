@@ -145,6 +145,56 @@ switch ($action) {
         ]);
         exit;
 
+    case 'direct-login':
+        try {
+            if (!defined('LARAVEL_START')) {
+                define('LARAVEL_START', microtime(true));
+            }
+            require_once $basePath . '/vendor/autoload.php';
+            $app = require_once $basePath . '/bootstrap/app.php';
+            $console = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+            $console->bootstrap();
+
+            $email = $params['email'] ?? '';
+            $password = $params['password'] ?? '';
+
+            $user = \App\Models\User::where('email', $email)->first();
+            if (!$user || !\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+                http_response_code(401);
+                echo json_encode([
+                    'message' => 'Invalid credentials.',
+                    'errors' => ['email' => ['Invalid credentials.']],
+                ]);
+                exit;
+            }
+
+            $permissions = [];
+            try {
+                $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+            } catch (\Throwable $e) {}
+
+            $token = $user->createToken('auth-token', $permissions, now()->addDays(30))->plainTextToken;
+
+            echo json_encode([
+                'message' => 'Login successful.',
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $user->getRoleNames(),
+                    'permissions' => $permissions,
+                    'status' => $user->status,
+                ],
+                'token' => $token,
+                'token_type' => 'Bearer',
+            ]);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Direct login error: ' . $e->getMessage()]);
+            exit;
+        }
+
     case 'reset-admin':
         try {
             if (!defined('LARAVEL_START')) {
@@ -161,6 +211,27 @@ switch ($action) {
             if (empty($password)) {
                 echo json_encode(['success' => false, 'message' => 'Password is required.']);
                 exit;
+            }
+
+            // Ensure .env has safe file drivers
+            $envPath = $basePath . '/.env';
+            if (file_exists($envPath)) {
+                $envContent = file_get_contents($envPath);
+                $fixes = [
+                    'CACHE_DRIVER' => 'file',
+                    'CACHE_STORE' => 'file',
+                    'SESSION_DRIVER' => 'file',
+                    'QUEUE_CONNECTION' => 'sync',
+                    'REDIS_HOST' => '127.0.0.1',
+                ];
+                foreach ($fixes as $k => $v) {
+                    if (preg_match("/^{$k}=.*/m", $envContent)) {
+                        $envContent = preg_replace("/^{$k}=.*/m", "{$k}={$v}", $envContent);
+                    } else {
+                        $envContent .= "\n{$k}={$v}";
+                    }
+                }
+                file_put_contents($envPath, $envContent);
             }
 
             $masterOrg = \App\Models\Organization::firstOrCreate(

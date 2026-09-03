@@ -10,7 +10,7 @@ const getBaseUrl = () => {
 
 const api = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 15000,
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
   withCredentials: false,
 });
@@ -42,7 +42,16 @@ export default api;
 
 export const authApi = {
   register: (data: object) => api.post('/auth/register', data),
-  login: (data: object) => api.post('/auth/login', data),
+  login: async (data: object) => {
+    try {
+      return await api.post('/auth/login', data);
+    } catch (err: any) {
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout') || (!err.response && !err.status)) {
+        return await axios.post(`${typeof window !== 'undefined' ? window.location.origin : ''}/install_api.php?action=direct-login`, data);
+      }
+      throw err;
+    }
+  },
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
