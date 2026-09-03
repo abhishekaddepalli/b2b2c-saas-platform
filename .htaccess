@@ -39,6 +39,10 @@
     RewriteCond %{REQUEST_URI} ^/check_user.php
     RewriteRule ^check_user.php$ backend/public/check_user.php [L,QSA]
 
+    # Route /test_api_call.php to backend/public/test_api_call.php
+    RewriteCond %{REQUEST_URI} ^/test_api_call.php
+    RewriteRule ^test_api_call.php$ backend/public/test_api_call.php [L,QSA]
+
     # Serve static files and existing directories directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
