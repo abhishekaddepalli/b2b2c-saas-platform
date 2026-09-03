@@ -1,100 +1,235 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit2, Loader2, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Package, Plus, Search, CheckCircle, ShieldAlert,
+  Loader2, DollarSign, X, Edit3, Trash2,
+  Sparkles, Layers, ArrowUpRight
+} from 'lucide-react';
 import { adminApi } from '../../api';
 import type { Product } from '../../types';
 
 const statusColors: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700',
-  draft: 'bg-amber-50 text-amber-700',
-  archived: 'bg-slate-100 text-slate-500',
+  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  draft: 'bg-amber-50 text-amber-700 border-amber-200',
+  archived: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
 export default function AdminProducts() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const emptyForm = {
-    name: '', sku: '', type: 'digital', status: 'draft', visibility: 'public',
-    short_description: '', full_description: '', featured: false,
-    pricing_type: 'fixed', cost_price: '', reseller_price: '', customer_price: '',
-    tax_rate: '0.18', currency: 'INR',
+    name: '',
+    slug: '',
+    sku: '',
+    type: 'digital',
+    status: 'active',
+    visibility: 'public',
+    short_description: '',
+    full_description: '',
+    featured: false,
+    cost_price: 199,
+    reseller_price: 349,
+    customer_price: 599,
   };
+
   const [form, setForm] = useState(emptyForm);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'products', search, statusFilter],
-    queryFn: () => adminApi.products({ search, status: statusFilter, per_page: 25 }).then(r => r.data),
+    queryKey: ['admin', 'products', search, statusFilter, typeFilter],
+    queryFn: () => adminApi.products({ search, status: statusFilter, type: typeFilter, per_page: 50 }).then(r => r.data),
   });
 
   const products: Product[] = data?.data ?? [];
 
-  const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(v => ({ ...v, [f]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }));
+  // Metrics
+  const totalProducts = products.length;
+  const activeProducts = products.filter(p => p.status === 'active').length;
+  const digitalProducts = products.filter(p => p.type === 'digital' || p.type === 'software').length;
+  const featuredProducts = products.filter(p => p.featured).length;
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setErrors({});
-    try {
-      const slug = form.sku ? form.sku.toLowerCase() : form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Math.random().toString(36).substring(2, 6);
-      await adminApi.createProduct({
-        ...form,
-        slug,
-        cost_price: parseFloat(form.cost_price),
-        reseller_price: parseFloat(form.reseller_price),
-        customer_price: parseFloat(form.customer_price),
-        tax_rate: parseFloat(form.tax_rate),
-      });
+  // Create Mutation
+  const createMutation = useMutation({
+    mutationFn: (payload: any) => adminApi.createProduct(payload),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'products'] });
       setShowCreate(false);
       setForm(emptyForm);
-    } catch (err: any) {
-      const apiErrors = err?.response?.data?.errors ?? {};
-      const flat: Record<string, string> = {};
-      Object.entries(apiErrors).forEach(([k, v]) => { flat[k] = (v as string[])[0]; });
-      setErrors(flat);
-    } finally {
-      setSaving(false);
-    }
-  };
+      setSuccessMsg('Product created successfully with wholesale pricing!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    },
+    onError: (err: any) => {
+      setErrorMsg(err?.response?.data?.message || 'Failed to create product.');
+    },
+  });
 
-  const handleStatusToggle = async (product: Product) => {
-    const next = product.status === 'active' ? 'archived' : 'active';
-    await adminApi.updateProductStatus(product.id, next);
-    qc.invalidateQueries({ queryKey: ['admin', 'products'] });
-  };
+  // Update Mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => adminApi.updateProduct(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'products'] });
+      setEditingProduct(null);
+      setSuccessMsg('Product updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    },
+    onError: (err: any) => {
+      setErrorMsg(err?.response?.data?.message || 'Failed to update product.');
+    },
+  });
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
-    await adminApi.deleteProduct(id);
-    qc.invalidateQueries({ queryKey: ['admin', 'products'] });
+  // Delete Mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteProduct(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'products'] });
+      setSuccessMsg('Product deleted.');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    },
+    onError: (err: any) => {
+      setErrorMsg(err?.response?.data?.message || 'Failed to delete product.');
+    },
+  });
+
+  const openEditModal = (p: Product) => {
+    setEditingProduct(p);
+    const price = (p as any).prices?.[0];
+
+    setForm({
+      name: p.name,
+      slug: p.slug,
+      sku: p.sku || '',
+      type: p.type || 'digital',
+      status: p.status || 'active',
+      visibility: p.visibility || 'public',
+      short_description: p.short_description || '',
+      full_description: p.full_description || '',
+      featured: p.featured || false,
+      cost_price: price?.cost_price || 0,
+      reseller_price: price?.reseller_price || 0,
+      customer_price: price?.customer_price || 0,
+    });
+    setErrorMsg('');
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Products</h1>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+            <Package className="w-7 h-7 text-indigo-600" />
+            Products Catalog & Wholesales
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Manage software, licenses, physical assets, and digital products available for resale.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowCreate(true);
+            setForm(emptyForm);
+            setErrorMsg('');
+          }}
+          className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0"
+        >
           <Plus className="w-4 h-4" /> New Product
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Search products…" value={search} onChange={e => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-60" />
+      {/* Alerts */}
+      {successMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+          {successMsg}
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="">All status</option>
+      )}
+      {errorMsg && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+          {errorMsg}
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Total Products</div>
+            <div className="text-xl font-bold text-slate-900 mt-1">{totalProducts}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Package className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Active Products</div>
+            <div className="text-xl font-bold text-emerald-600 mt-1">{activeProducts}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Digital & Software</div>
+            <div className="text-xl font-bold text-violet-600 mt-1">{digitalProducts}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+            <Layers className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">Featured Items</div>
+            <div className="text-xl font-bold text-amber-600 mt-1">{featuredProducts}</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search products by title, SKU, or summary…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-2xs"
+          />
+        </div>
+
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+        >
+          <option value="">All Types</option>
+          <option value="digital">Digital Download</option>
+          <option value="license">Software License</option>
+          <option value="physical">Physical Asset</option>
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+        >
+          <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="draft">Draft</option>
           <option value="archived">Archived</option>
@@ -102,146 +237,327 @@ export default function AdminProducts() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-indigo-600" /></div>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            <span className="text-xs">Loading products catalog...</span>
+          </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-16">
-            <Package className="w-10 h-10 mx-auto text-slate-200 mb-3" />
-            <p className="text-sm text-slate-500">No products found</p>
-            <button onClick={() => setShowCreate(true)} className="mt-3 text-sm text-indigo-600 font-medium hover:text-indigo-700">
-              + Create first product
+          <div className="text-center py-16 space-y-3">
+            <Package className="w-12 h-12 mx-auto text-slate-300" />
+            <p className="text-sm font-semibold text-slate-700">No products found</p>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Create your first catalog product to allow resellers to distribute it.
+            </p>
+            <button
+              onClick={() => {
+                setShowCreate(true);
+                setForm(emptyForm);
+              }}
+              className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Product Now
             </button>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                {['Product', 'SKU', 'Type', 'Status', 'Visibility', 'Cost', 'Reseller', 'Customer', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {products.map(p => {
-                const price = (p as any).prices?.[0];
-                return (
-                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 bg-slate-100 rounded-lg overflow-hidden shrink-0">
-                          {p.images?.[0] ? (
-                            <img src={p.images[0].path} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-4 h-4 text-slate-300" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold uppercase tracking-wider">
+                  <th className="px-4 py-3.5">Product Title</th>
+                  <th className="px-4 py-3.5">Type & SKU</th>
+                  <th className="px-4 py-3.5">Cost Price</th>
+                  <th className="px-4 py-3.5">Reseller Price</th>
+                  <th className="px-4 py-3.5">Retail Price</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {products.map(p => {
+                  const price = (p as any).prices?.[0];
+
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-800 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                              {p.name}
+                              {p.featured && <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />}
                             </div>
-                          )}
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              /{p.slug}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-slate-900">{p.name}</div>
-                          {p.featured && <span className="text-xs text-indigo-600">★ Featured</span>}
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <span className="capitalize px-2 py-0.5 rounded bg-slate-100 font-semibold text-slate-700 text-[11px]">
+                          {p.type}
+                        </span>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{p.sku}</div>
+                      </td>
+
+                      <td className="px-4 py-3.5 font-medium text-slate-500">
+                        ₹{price?.cost_price ?? '0.00'}
+                      </td>
+
+                      <td className="px-4 py-3.5 font-bold text-violet-700">
+                        ₹{price?.reseller_price ?? '0.00'}
+                      </td>
+
+                      <td className="px-4 py-3.5 font-black text-slate-900">
+                        ₹{price?.customer_price ?? '0.00'}
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusColors[p.status || 'active']}`}>
+                          <span className="capitalize">{p.status || 'active'}</span>
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(p)}
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            title="Edit Product"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Delete product "${p.name}"?`)) {
+                                deleteMutation.mutate(p.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500 font-mono">{p.sku}</td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600 capitalize">{p.type}</td>
-                    <td className="px-4 py-3.5">
-                      <button onClick={() => handleStatusToggle(p)}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 ${statusColors[p.status]}`}>
-                        {p.status}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500 capitalize">{p.visibility.replace('_', ' ')}</td>
-                    <td className="px-4 py-3.5 text-xs font-medium text-slate-600">₹{price?.cost_price ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-xs font-medium text-violet-600">₹{price?.reseller_price ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-xs font-bold text-slate-900">₹{price?.customer_price ?? '—'}</td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1">
-                        <button className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xl my-8">
-            <h2 className="font-bold text-slate-900 mb-5">Create Product</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Name *</label>
-                  <input type="text" value={form.name} onChange={set('name')} required
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+      {/* CREATE / EDIT PRODUCT MODAL */}
+      {(showCreate || editingProduct) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Package className="w-5 h-5" />
                 </div>
-                {[
-                  { field: 'type', label: 'Type', options: ['digital','physical','license','hardware','software','other'] },
-                  { field: 'status', label: 'Status', options: ['draft','active','archived'] },
-                  { field: 'visibility', label: 'Visibility', options: ['public','reseller_only','hidden'] },
-                ].map(({ field, label, options }) => (
-                  <div key={field}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-                    <select value={(form as any)[field]} onChange={set(field)}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                      {options.map(o => <option key={o} value={o} className="capitalize">{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Short Description</label>
-                  <input type="text" value={form.short_description} onChange={set('short_description')}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingProduct ? 'Edit Product' : 'Create New Product'}
+                  </h2>
+                  <p className="text-xs text-slate-500">Configure catalog product details and wholesale tiers</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreate(false);
+                  setEditingProduct(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setErrorMsg('');
+                if (editingProduct) {
+                  updateMutation.mutate({ id: editingProduct.id, payload: form });
+                } else {
+                  createMutation.mutate(form);
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Product Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. JetBrains Ultimate License"
+                    value={form.name}
+                    onChange={e => {
+                      const name = e.target.value;
+                      setForm(f => ({
+                        ...f,
+                        name,
+                        slug: f.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">SKU / Code</label>
+                  <input
+                    type="text"
+                    placeholder="Auto-generated if empty"
+                    value={form.sku}
+                    onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
                 </div>
               </div>
 
-              {/* Pricing section */}
-              <div className="border-t border-slate-100 pt-4">
-                <div className="text-sm font-semibold text-slate-700 mb-3">Pricing</div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { field: 'cost_price', label: 'Cost Price ₹', hint: 'Your cost — never shown to resellers' },
-                    { field: 'reseller_price', label: 'Reseller Price ₹', hint: 'What resellers pay' },
-                    { field: 'customer_price', label: 'Customer Price ₹', hint: 'End customer price' },
-                  ].map(({ field, label, hint }) => (
-                    <div key={field}>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
-                      <input type="number" min="0" step="0.01" value={(form as any)[field]} onChange={set(field)} required
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                      <p className="text-xs text-slate-400 mt-0.5">{hint}</p>
-                      {errors[field] && <p className="text-xs text-red-600">{errors[field]}</p>}
-                    </div>
-                  ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Product Type</label>
+                  <select
+                    value={form.type}
+                    onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="digital">Digital Product</option>
+                    <option value="license">Software License Key</option>
+                    <option value="physical">Physical Product</option>
+                  </select>
                 </div>
-                {form.cost_price && form.reseller_price && form.customer_price && (
-                  <div className="mt-3 bg-indigo-50 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="text-slate-600">Platform margin: <span className="font-semibold text-indigo-700">₹{(parseFloat(form.reseller_price) - parseFloat(form.cost_price)).toFixed(2)}</span></div>
-                    <div className="text-slate-600">Reseller margin: <span className="font-semibold text-violet-700">₹{(parseFloat(form.customer_price) - parseFloat(form.reseller_price)).toFixed(2)}</span></div>
-                  </div>
-                )}
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="active">Active (Published)</option>
+                    <option value="draft">Draft (Hidden)</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => { setShowCreate(false); setForm(emptyForm); setErrors({}); }}
-                  className="flex-1 border border-slate-200 text-slate-700 text-sm font-medium py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Short Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Instant delivery software license key with 1-year updates"
+                  value={form.short_description}
+                  onChange={e => setForm(f => ({ ...f, short_description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Pricing Section */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-emerald-600" /> Wholesale & Retail Pricing (₹ INR)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Platform Cost Price ₹</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      value={form.cost_price}
+                      onChange={e => setForm(f => ({ ...f, cost_price: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Reseller Wholesale Price ₹</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      value={form.reseller_price}
+                      onChange={e => setForm(f => ({ ...f, reseller_price: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-mono text-violet-700 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Retail Customer Price ₹</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      value={form.customer_price}
+                      onChange={e => setForm(f => ({ ...f, customer_price: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-mono text-slate-900 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Profit Preview */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
+                  <div className="p-2 bg-indigo-100/50 rounded-lg text-indigo-900 font-medium">
+                    Platform Profit: <span className="font-bold">₹{(form.reseller_price - form.cost_price).toFixed(2)}</span>
+                  </div>
+                  <div className="p-2 bg-violet-100/50 rounded-lg text-violet-900 font-medium">
+                    Reseller Markup: <span className="font-bold">₹{(form.customer_price - form.reseller_price).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.featured}
+                    onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-bold text-slate-800">Featured in platform marketplace</span>
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreate(false);
+                    setEditingProduct(null);
+                  }}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Create Product
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  {(createMutation.isPending || updateMutation.isPending) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  {editingProduct ? 'Save Changes' : 'Create Product'}
                 </button>
               </div>
             </form>

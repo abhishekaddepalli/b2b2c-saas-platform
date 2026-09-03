@@ -6,14 +6,32 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $products = Product::with(['prices', 'category'])
-            ->latest('created_at')
-            ->paginate($request->per_page ?? 20);
+        $query = Product::with(['prices', 'category:id,name,slug']);
+
+        if ($request->filled('search')) {
+            $s = '%' . trim($request->search) . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', $s)
+                  ->orWhere('sku', 'like', $s)
+                  ->orWhere('short_description', 'like', $s);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        $products = $query->latest('created_at')->paginate($request->per_page ?? 25);
 
         return response()->json($products);
     }
@@ -22,24 +40,35 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'unique:products,slug'],
-            'type' => ['required', 'in:digital,license_key,downloadable,membership'],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:products,slug'],
+            'sku' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', 'string'],
             'status' => ['nullable', 'in:draft,active,archived'],
             'cost_price' => ['required', 'numeric', 'min:0'],
             'reseller_price' => ['required', 'numeric', 'min:0'],
             'customer_price' => ['required', 'numeric', 'min:0'],
         ]);
 
+        $slug = $request->filled('slug')
+            ? Str::slug($request->slug)
+            : Str::slug($request->name) . '-' . Str::random(4);
+
+        $sku = $request->filled('sku')
+            ? strtoupper($request->sku)
+            : 'SKU-' . strtoupper(Str::random(6));
+
         $product = Product::create([
             'name' => $request->name,
-            'slug' => $request->slug,
+            'slug' => $slug,
+            'sku' => $sku,
             'short_description' => $request->short_description,
             'full_description' => $request->full_description,
-            'type' => $request->type,
+            'type' => $request->type ?? 'digital',
             'category_id' => $request->category_id,
             'visibility' => $request->visibility ?? 'public',
             'status' => $request->status ?? 'active',
             'currency' => 'INR',
+            'featured' => $request->boolean('featured', false),
         ]);
 
         $product->prices()->create([
@@ -52,7 +81,7 @@ class ProductController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Product created with 3-tier pricing.',
+            'message' => 'Product created with 3-tier wholesale pricing.',
             'data' => $product->load('prices'),
         ], 201);
     }
@@ -67,7 +96,16 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        $product->update($request->only('name', 'short_description', 'full_description', 'visibility', 'status', 'category_id'));
+        $data = $request->only([
+            'name', 'sku', 'short_description', 'full_description',
+            'visibility', 'status', 'category_id', 'type', 'featured'
+        ]);
+
+        if ($request->filled('slug')) {
+            $data['slug'] = Str::slug($request->slug);
+        }
+
+        $product->update($data);
 
         if ($request->has(['cost_price', 'reseller_price', 'customer_price'])) {
             $product->prices()->updateOrCreate(
@@ -82,7 +120,10 @@ class ProductController extends Controller
             );
         }
 
-        return response()->json(['message' => 'Product updated.', 'data' => $product->load('prices')]);
+        return response()->json([
+            'message' => 'Product updated successfully.',
+            'data' => $product->fresh('prices'),
+        ]);
     }
 
     public function updateStatus(Request $request, string $id): JsonResponse
@@ -98,6 +139,6 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
         $product->delete();
 
-        return response()->json(['message' => 'Product deleted.']);
+        return response()->json(['message' => 'Product deleted successfully.']);
     }
 }

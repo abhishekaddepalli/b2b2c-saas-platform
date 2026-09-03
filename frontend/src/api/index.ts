@@ -151,7 +151,11 @@ export const adminApi = {
 
   // Services
   services: (params?: object) => api.get('/admin/services', { params }),
+  service: (id: string) => api.get(`/admin/services/${id}`),
   createService: (data: object) => api.post('/admin/services', data),
+  updateService: (id: string, data: object) => api.put(`/admin/services/${id}`, data),
+  deleteService: (id: string) => api.delete(`/admin/services/${id}`),
+  updateServiceStatus: (id: string, status: string) => api.post(`/admin/services/${id}/status`, { status }),
 
   // Categories
   categories: (params?: object) => api.get('/admin/categories', { params }),
