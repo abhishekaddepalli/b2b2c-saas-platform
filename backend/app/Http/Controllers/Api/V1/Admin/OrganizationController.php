@@ -15,7 +15,7 @@ class OrganizationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Organization::with([
-            'wallet:id,organization_id,balance,available_balance,currency',
+            'wallet:id,organization_id,available_balance,reserved_balance,credit_limit,currency',
             'users:id,name,email'
         ]);
 

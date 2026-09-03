@@ -38,6 +38,7 @@ import AdminSettings from './pages/admin/SettingsPage';
 import AdminAuditLogs from './pages/admin/AuditLogsPage';
 import AdminAutomation from './pages/admin/AutomationPage';
 import SystemHealthPage from './pages/admin/SystemHealthPage';
+import AdminCms from './pages/admin/CmsPage';
 import InstallerPage from './pages/InstallerPage';
 
 // Reseller pages
@@ -152,6 +153,7 @@ export default function App() {
               <Route path="audit-logs" element={<AdminAuditLogs />} />
               <Route path="automation" element={<AdminAutomation />} />
               <Route path="system-health" element={<SystemHealthPage />} />
+              <Route path="cms" element={<AdminCms />} />
             </Route>
 
             {/* Reseller */}

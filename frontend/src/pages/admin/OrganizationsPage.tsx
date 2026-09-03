@@ -90,7 +90,7 @@ export default function AdminOrganizations() {
   // Stats calculation
   const totalOrgs = orgs.length;
   const activeResellers = orgs.filter(o => o.type === 'reseller' && o.status === 'active').length;
-  const totalWalletBalances = orgs.reduce((acc, o) => acc + Number(o.wallet?.balance || 0), 0);
+  const totalWalletBalances = orgs.reduce((acc, o) => acc + Number(o.wallet?.available_balance || o.wallet?.balance || 0), 0);
   const pendingApprovals = orgs.filter(o => o.status === 'pending').length;
 
   // Open Drawer and populate state

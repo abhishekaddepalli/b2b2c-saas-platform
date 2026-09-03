@@ -238,6 +238,11 @@ export const adminApi = {
   saasPlans: (params?: object) => api.get('/admin/saas-plans', { params }),
   createSaasPlan: (data: object) => api.post('/admin/saas-plans', data),
   updateSaasPlan: (id: string, data: object) => api.put(`/admin/saas-plans/${id}`, data),
+  deleteSaasPlan: (id: string) => api.delete(`/admin/saas-plans/${id}`),
+
+  // Site CMS
+  cms: () => api.get('/admin/cms'),
+  updateCms: (data: object) => api.put('/admin/cms', data),
 
   // Automation Center
   automationTemplates: () => api.get('/admin/automation/templates'),

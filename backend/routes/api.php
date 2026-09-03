@@ -24,6 +24,9 @@ Route::prefix('v1')->group(function () {
         Route::post('stripe', [WebhookController::class, 'stripe']);
     });
 
+    // Public CMS Data
+    Route::get('cms', [\App\Http\Controllers\Api\V1\Admin\CmsController::class, 'getPublicCms']);
+
     // ─── Public marketplace (pricing resolved per role in controller) ─────────
     Route::prefix('marketplace')->group(function () {
         Route::get('/', [MarketplaceController::class, 'home']);
@@ -187,6 +190,10 @@ Route::prefix('v1')->group(function () {
             Route::get('audit-logs/{id}', [\App\Http\Controllers\Api\V1\Admin\AuditLogController::class, 'show']);
             Route::get('system-health', [\App\Http\Controllers\Api\V1\Admin\HealthCheckController::class, 'detailedHealth']);
             Route::apiResource('saas-plans', \App\Http\Controllers\Api\V1\Admin\SaasPlanAdminController::class);
+
+            // Site CMS Management
+            Route::get('cms', [\App\Http\Controllers\Api\V1\Admin\CmsController::class, 'index']);
+            Route::put('cms', [\App\Http\Controllers\Api\V1\Admin\CmsController::class, 'update']);
 
             // Automation Center
             Route::prefix('automation')->group(function () {

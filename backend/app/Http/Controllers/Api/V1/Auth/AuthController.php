@@ -44,12 +44,27 @@ class AuthController extends Controller
 
             // If registering as a reseller org
             if ($request->register_as_reseller && $request->org_name) {
+                $settingsFile = storage_path('app/settings.json');
+                $autoApprove = true;
+                if (\Illuminate\Support\Facades\File::exists($settingsFile)) {
+                    $s = json_decode(\Illuminate\Support\Facades\File::get($settingsFile), true) ?: [];
+                    $autoApprove = $s['auto_approve_resellers'] ?? true;
+                }
+
+                $orgStatus = $autoApprove ? 'active' : 'pending';
+                $userStatus = $autoApprove ? 'active' : 'pending';
+
                 $org = Organization::create([
                     'name' => $request->org_name,
                     'slug' => Str::slug($request->org_name) . '-' . Str::random(4),
                     'type' => 'reseller',
-                    'status' => 'pending',
+                    'status' => $orgStatus,
                     'currency' => 'INR',
+                    'white_label_enabled' => true,
+                    'metadata' => [
+                        'saas_plan' => $request->saas_plan ?? 'pro',
+                        'margin_percentage' => 15.0,
+                    ],
                 ]);
 
                 $org->users()->attach($user->id, [
@@ -60,13 +75,31 @@ class AuthController extends Controller
 
                 $user->update([
                     'current_organization_id' => $org->id,
-                    'status' => 'pending',
+                    'status' => $userStatus,
                 ]);
 
                 $user->syncRoles(['RESELLER']);
 
                 // Create wallet for new reseller org
                 $this->walletService->ensureWalletExists($org);
+
+                // Attach SaaS plan if selected
+                if ($request->filled('saas_plan')) {
+                    $plan = \App\Models\SaasPlan::where('slug', $request->saas_plan)
+                        ->orWhere('id', $request->saas_plan)
+                        ->first();
+                    if ($plan) {
+                        try {
+                            app(\App\Services\Saas\SaasMonetizationService::class)->subscribeOrganization(
+                                $org,
+                                $plan,
+                                $request->billing_interval ?? 'monthly'
+                            );
+                        } catch (\Throwable $e) {
+                            // Non-fatal if plan attachment needs setup
+                        }
+                    }
+                }
             }
 
             event(new Registered($user));
@@ -74,9 +107,14 @@ class AuthController extends Controller
             return $user;
         });
 
+        // Issue auth token immediately for seamless checkout and dashboard transition
+        $token = $user->createToken('auth-token')->plainTextToken;
+
         return response()->json([
-            'message' => 'Registration successful. Please verify your email.',
+            'message' => 'Registration successful! Welcome to the platform.',
+            'token' => $token,
             'data' => new AuthUserResource($user),
+            'organization' => $user->getOrganization(),
         ], 201);
     }
 

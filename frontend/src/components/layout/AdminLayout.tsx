@@ -21,6 +21,7 @@ import {
   Users,
   Wallet,
   Zap,
+  LayoutTemplate,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import GlobalCommandPalette from '../common/GlobalCommandPalette';
@@ -37,6 +38,7 @@ const navItems = [
   { label: 'Wallets', to: '/admin/wallets', icon: Wallet },
   { label: 'Offers', to: '/admin/offers', icon: Percent },
   { label: 'Reports', to: '/admin/reports', icon: BarChart3 },
+  { label: 'Site CMS', to: '/admin/cms', icon: LayoutTemplate },
   { label: 'Settings', to: '/admin/settings', icon: Settings },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: ShieldCheck },
   { label: 'Automation Center', to: '/admin/automation', icon: Zap },
