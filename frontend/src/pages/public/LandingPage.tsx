@@ -210,14 +210,14 @@ export default function LandingPage() {
               return (
                 <div key={i} className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/40 transition-all space-y-3.5 relative group">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-2xl text-slate-700 group-hover:text-indigo-400 transition-colors">{st.step}</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">{st.badge}</span>
+                    <span className="font-mono font-black text-2xl text-indigo-400 group-hover:text-indigo-300 transition-colors">{st.step}</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">{st.badge}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                     <Icon className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-white text-base">{st.title}</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">{st.desc}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">{st.desc}</p>
                 </div>
               );
             })}
@@ -235,7 +235,7 @@ export default function LandingPage() {
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
               Enterprise Features Built for Scale
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-300 font-medium">
               Not a demo — every single component is architected for production reliability, financial integrity, and auditability.
             </p>
           </div>
@@ -256,7 +256,7 @@ export default function LandingPage() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-white text-base">{f.title}</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">{f.desc}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">{f.desc}</p>
                 </div>
               );
             })}
@@ -274,7 +274,7 @@ export default function LandingPage() {
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
               Simple, Predictable Plans for Every Stage
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-300 font-medium">
               Scale your reseller distribution network with transparent monthly or annual pricing in ₹ INR. All plans include automated wallet management.
             </p>
 
@@ -352,18 +352,18 @@ export default function LandingPage() {
                       )}
 
                       {/* Quota Highlights */}
-                      <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1.5 text-xs">
+                      <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Customers:</span>
+                          <span className="text-slate-300 font-medium">Customer Quota:</span>
                           <span className="font-bold text-white">{isUnlimitedCust ? '∞ Unlimited' : `${plan.customer_limit} customers`}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Catalog Items:</span>
+                          <span className="text-slate-300 font-medium">Catalog Quota:</span>
                           <span className="font-bold text-white">{isUnlimitedProd ? '∞ Unlimited' : `${plan.products_limit} items`}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">White-Label Branding:</span>
-                          <span className={`font-bold ${plan.white_label_available ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          <span className="text-slate-300 font-medium">White-Label Branding:</span>
+                          <span className={`font-bold ${plan.white_label_available ? 'text-emerald-400' : 'text-slate-400'}`}>
                             {plan.white_label_available ? 'Included' : 'Standard'}
                           </span>
                         </div>
@@ -371,9 +371,9 @@ export default function LandingPage() {
 
                       {/* Features Checklist */}
                       <div className="space-y-2 pt-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Included Features:</span>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Included Features:</span>
                         {(plan.features || ['Prepaid Wallet Engine', 'Role-Aware Pricing', 'SSL Support']).map((feat: string, fIdx: number) => (
-                          <div key={fIdx} className="flex items-center gap-2 text-xs text-slate-300">
+                          <div key={fIdx} className="flex items-center gap-2 text-xs text-slate-100 font-medium">
                             <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             <span>{feat}</span>
                           </div>
