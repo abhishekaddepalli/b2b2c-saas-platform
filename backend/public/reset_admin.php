@@ -8,26 +8,34 @@
 header('Content-Type: text/html; charset=utf-8');
 
 $basePath = dirname(__DIR__);
-
-// Clean .env of any redis or hanging drivers
 $envPath = $basePath . '/.env';
-if (file_exists($envPath)) {
-    $envContent = file_get_contents($envPath);
-    $fixes = [
-        'CACHE_DRIVER' => 'file',
-        'CACHE_STORE' => 'file',
-        'SESSION_DRIVER' => 'file',
-        'QUEUE_CONNECTION' => 'sync',
-        'REDIS_HOST' => '127.0.0.1',
-    ];
-    foreach ($fixes as $k => $v) {
-        if (preg_match("/^{$k}=.*/m", $envContent)) {
-            $envContent = preg_replace("/^{$k}=.*/m", "{$k}={$v}", $envContent);
-        } else {
-            $envContent .= "\n{$k}={$v}";
-        }
+
+// Emergency 1-Click Git Updater
+if (isset($_GET['git_sync'])) {
+    header('Content-Type: application/json');
+    $projectRoot = dirname($basePath);
+    $output = [];
+    $ret = -1;
+    if (file_exists($envPath)) {
+        @copy($envPath, $basePath . '/.env.backup');
     }
-    file_put_contents($envPath, $envContent);
+    $cmd = "cd {$projectRoot} && git fetch origin main 2>&1 && git reset --hard origin/main 2>&1";
+    exec($cmd, $output, $ret);
+    if (file_exists($basePath . '/.env.backup')) {
+        @copy($basePath . '/.env.backup', $envPath);
+    }
+    @unlink($basePath . '/bootstrap/cache/config.php');
+    @unlink($basePath . '/bootstrap/cache/routes-v7.php');
+    @unlink($basePath . '/bootstrap/cache/packages.php');
+    @unlink($basePath . '/bootstrap/cache/services.php');
+
+    $commit = @exec("cd {$projectRoot} && git rev-parse --short HEAD");
+    echo json_encode([
+        'status' => $ret === 0 ? 'success' : 'completed_with_output',
+        'current_commit' => $commit,
+        'git_output' => $output,
+    ], JSON_PRETTY_PRINT);
+    exit;
 }
 
 // Clear any stale config cache
