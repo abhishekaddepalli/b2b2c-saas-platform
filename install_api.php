@@ -172,6 +172,11 @@ switch ($action) {
                 'DB_DATABASE' => $params['db_name'] ?? '',
                 'DB_USERNAME' => $params['db_user'] ?? '',
                 'DB_PASSWORD' => '"' . ($params['db_pass'] ?? '') . '"',
+                'CACHE_DRIVER' => 'file',
+                'CACHE_STORE' => 'file',
+                'SESSION_DRIVER' => 'file',
+                'QUEUE_CONNECTION' => 'sync',
+                'REDIS_HOST' => '127.0.0.1',
             ];
 
             foreach ($envData as $k => $v) {
@@ -204,6 +209,10 @@ switch ($action) {
             config([
                 'app.name' => $params['app_name'] ?? 'Commercial SaaS Platform',
                 'app.url' => $params['app_url'] ?? 'http://localhost',
+                'cache.default' => 'file',
+                'cache.stores.file.driver' => 'file',
+                'session.driver' => 'file',
+                'queue.default' => 'sync',
                 'database.default' => $dbDriver,
                 "database.connections.{$dbDriver}" => [
                     'driver' => $dbDriver,
