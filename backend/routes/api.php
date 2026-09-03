@@ -105,6 +105,7 @@ Route::prefix('v1')->group(function () {
             Route::get('wallet', [WalletController::class, 'show']);
             Route::get('wallet/transactions', [WalletController::class, 'transactions']);
             Route::post('wallet/recharge', [WalletController::class, 'initiateRecharge']);
+            Route::post('wallet/fulfill', [WalletController::class, 'fulfillRecharge']);
 
             // Customers
             Route::apiResource('customers', \App\Http\Controllers\Api\V1\Reseller\CustomerController::class);

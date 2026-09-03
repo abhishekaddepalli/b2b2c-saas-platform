@@ -142,17 +142,18 @@ export default function MarketplacePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {recProducts.map((p: any) => (
-              <div
+              <Link
                 key={p.id}
-                className="p-4 rounded-2xl border border-slate-800/80 bg-slate-950/70 hover:border-indigo-500/40 hover:bg-slate-900 transition-all flex flex-col justify-between"
+                to={`/products/${p.slug}`}
+                className="p-4 rounded-2xl border border-slate-800/80 bg-slate-950/70 hover:border-indigo-500/40 hover:bg-slate-900 transition-all flex flex-col justify-between group"
               >
                 <div>
                   <div className="text-[11px] text-indigo-400 font-bold mb-1 uppercase tracking-wider">{p.category?.name || 'Featured'}</div>
-                  <h3 className="font-bold text-white text-sm line-clamp-1 mb-1">{p.name}</h3>
+                  <h3 className="font-bold text-white text-sm line-clamp-1 mb-1 group-hover:text-indigo-400 transition-colors">{p.name}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{p.short_description}</p>
                 </div>
                 <PriceDisplay pricing={p.pricing} role={role} />
-              </div>
+              </Link>
             ))}
           </div>
         </section>
@@ -234,20 +235,25 @@ export default function MarketplacePage() {
                         key={p.id}
                         className="group bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all flex flex-col justify-between"
                       >
-                        <div>
+                        <Link to={`/products/${p.slug}`} className="block">
                           <div className="aspect-video bg-slate-950 relative overflow-hidden">
                             {p.images?.[0] ? (
                               <img src={p.images[0].path} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-10 h-10 text-slate-700 group-hover:text-indigo-500/50 transition-colors" />
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-indigo-950 via-slate-900 to-violet-950 p-4 text-center">
+                                <Package className="w-10 h-10 text-indigo-400 mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] font-mono text-indigo-300 uppercase tracking-widest">{p.category?.name || 'Digital SaaS'}</span>
                               </div>
                             )}
 
                             {/* Wishlist Button */}
                             <button
                               type="button"
-                              onClick={() => wishlistMutation.mutate({ product_id: p.id })}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                wishlistMutation.mutate({ product_id: p.id });
+                              }}
                               className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700 shadow-sm hover:bg-slate-800 transition-colors"
                             >
                               <Heart className={`w-3.5 h-3.5 ${inWishlist ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
@@ -270,17 +276,17 @@ export default function MarketplacePage() {
                               {p.short_description || p.full_description}
                             </p>
                           </div>
-                        </div>
+                        </Link>
 
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={p.pricing} role={role} />
 
                           <Link
-                            to="/register"
+                            to={`/products/${p.slug}`}
                             className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
                           >
                             <ShoppingCart className="w-3.5 h-3.5" />
-                            <span>Order License</span>
+                            <span>{role === 'reseller' ? 'Wholesale Order' : 'Order License'}</span>
                           </Link>
                         </div>
                       </div>
@@ -315,20 +321,25 @@ export default function MarketplacePage() {
                         key={s.id}
                         className="group bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all flex flex-col justify-between"
                       >
-                        <div>
+                        <Link to={`/services/${s.slug}`} className="block">
                           <div className="aspect-video bg-slate-950 relative overflow-hidden">
                             {s.image_url ? (
                               <img src={s.image_url} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Server className="w-10 h-10 text-slate-700 group-hover:text-indigo-500/50 transition-colors" />
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-violet-950 via-slate-900 to-indigo-950 p-4 text-center">
+                                <Server className="w-10 h-10 text-violet-400 mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">{s.category?.name || 'Cloud Managed'}</span>
                               </div>
                             )}
 
                             {/* Wishlist Button */}
                             <button
                               type="button"
-                              onClick={() => wishlistMutation.mutate({ service_id: s.id })}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                wishlistMutation.mutate({ service_id: s.id });
+                              }}
                               className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700 shadow-sm hover:bg-slate-800 transition-colors"
                             >
                               <Heart className={`w-3.5 h-3.5 ${inWishlist ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
@@ -351,17 +362,17 @@ export default function MarketplacePage() {
                               {s.short_description || s.full_description}
                             </p>
                           </div>
-                        </div>
+                        </Link>
 
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={(s as any).pricing ?? s.plans?.[0]?.pricing} role={role} />
 
                           <Link
-                            to="/register"
+                            to={`/services/${s.slug}`}
                             className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
                           >
                             <Zap className="w-3.5 h-3.5" />
-                            <span>Subscribe Service</span>
+                            <span>{role === 'reseller' ? 'Provision Service' : 'Subscribe Service'}</span>
                           </Link>
                         </div>
                       </div>

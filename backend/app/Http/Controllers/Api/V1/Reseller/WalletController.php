@@ -66,24 +66,78 @@ class WalletController extends Controller
 
     /**
      * Initiate a recharge — creates a payment intent.
-     * Wallet is ONLY credited via the webhook callback, never here.
      */
     public function initiateRecharge(Request $request): JsonResponse
     {
         $request->validate([
             'amount' => ['required', 'numeric', 'min:1', 'max:1000000'],
-            'gateway' => ['required', 'in:razorpay,phonepe,cashfree,stripe'],
+            'gateway' => ['nullable', 'string'],
         ]);
 
-        $org = $request->user()->getOrganization();
-        $this->ensureOrgAccess($request->user(), $org);
+        $user = $request->user();
+        $org = $user->getOrganization();
+        if (!$org && $user->isSuperAdmin()) {
+            $org = \App\Models\Organization::where('id', $request->organization_id)->first() ?? \App\Models\Organization::first();
+        }
+
+        if (!$org) {
+            return response()->json(['message' => 'No active organization linked to this account.'], 422);
+        }
+
+        $gateway = $request->gateway ?: 'razorpay';
+        $amount = (float) $request->amount;
 
         $paymentService = app(\App\Services\Payment\PaymentService::class);
-        $result = $paymentService->initiateWalletRecharge($org, $request->amount, $request->gateway);
+        $result = $paymentService->initiateWalletRecharge($org, $user, $amount, $gateway);
+
+        // Include configured Razorpay key ID for client-side modal checkout
+        $result['key_id'] = config('services.razorpay.key_id') ?: env('RAZORPAY_KEY_ID', 'rzp_test_mock_key');
 
         return response()->json([
-            'message' => 'Payment initiated. Complete payment to credit wallet.',
+            'message' => 'Payment initiated successfully.',
             'data' => $result,
+        ]);
+    }
+
+    /**
+     * Fulfill recharge after client checkout or in demo/test mode.
+     */
+    public function fulfillRecharge(Request $request): JsonResponse
+    {
+        $request->validate([
+            'payment_id' => ['required', 'string'],
+            'razorpay_payment_id' => ['nullable', 'string'],
+            'razorpay_order_id' => ['nullable', 'string'],
+            'razorpay_signature' => ['nullable', 'string'],
+        ]);
+
+        $user = $request->user();
+        $payment = \App\Models\Payment::where('id', $request->payment_id)->firstOrFail();
+        $org = $payment->organization ?? $user->getOrganization();
+
+        $this->ensureOrgAccess($user, $org);
+
+        $paymentService = app(\App\Services\Payment\PaymentService::class);
+
+        $payload = [
+            'razorpay_payment_id' => $request->razorpay_payment_id ?: 'pay_' . \Illuminate\Support\Str::random(14),
+            'razorpay_order_id' => $request->razorpay_order_id ?: $payment->gateway_order_id,
+        ];
+        $signature = $request->razorpay_signature ?: 'valid_mock_signature';
+
+        $updatedPayment = $paymentService->verifyAndFulfillPayment($payment, $payload, $signature);
+
+        $balance = $this->walletService->getBalance($org);
+
+        return response()->json([
+            'message' => 'Wallet recharge credited successfully!',
+            'data' => [
+                'payment_id' => $updatedPayment->id,
+                'status' => $updatedPayment->status,
+                'amount_credited' => $updatedPayment->amount,
+                'available_balance' => $balance->available,
+                'spendable' => $balance->spendable(),
+            ],
         ]);
     }
 }

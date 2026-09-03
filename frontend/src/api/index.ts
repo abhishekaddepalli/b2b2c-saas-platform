@@ -116,6 +116,7 @@ export const resellerApi = {
   wallet: () => api.get('/reseller/wallet'),
   walletTransactions: (params?: object) => api.get('/reseller/wallet/transactions', { params }),
   rechargeWallet: (data: object) => api.post('/reseller/wallet/recharge', data),
+  fulfillRecharge: (data: object) => api.post('/reseller/wallet/fulfill', data),
   customers: (params?: object) => api.get('/reseller/customers', { params }),
   customer: (id: string) => api.get(`/reseller/customers/${id}`),
   createCustomer: (data: object) => api.post('/reseller/customers', data),

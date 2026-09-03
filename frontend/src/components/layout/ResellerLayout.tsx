@@ -28,7 +28,7 @@ const navItems = [
   { label: 'Wallet', to: '/reseller/wallet', icon: IndianRupee },
   { label: 'Profit', to: '/reseller/profit', icon: BarChart3 },
   { label: 'Developer & API Hub', to: '/reseller/developer', icon: Code2 },
-  { label: 'Marketplace', to: '/app/marketplace', icon: Store },
+  { label: 'Marketplace', to: '/reseller/marketplace', icon: Store },
 ];
 
 export default function ResellerLayout() {
@@ -122,7 +122,7 @@ export default function ResellerLayout() {
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shrink-0">
           <div className="flex-1" />
           <Link
-            to="/app/marketplace"
+            to="/reseller/marketplace"
             className="text-sm text-violet-600 hover:text-violet-700 font-medium px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-colors flex items-center gap-1.5"
           >
             <Store className="w-4 h-4" />

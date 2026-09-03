@@ -51,7 +51,7 @@ import ResellerWallet from './pages/reseller/WalletPage';
 import ResellerProfit from './pages/reseller/ProfitPage';
 import ResellerSubscriptions from './pages/reseller/SubscriptionsPage';
 import ResellerOnboarding from './pages/reseller/OnboardingPage';
-
+import ResellerServices from './pages/reseller/ServicesPage';
 import ResellerDeveloper from './pages/reseller/DeveloperPage';
 
 // Customer pages
@@ -173,6 +173,8 @@ export default function App() {
               <Route path="wallet" element={<ResellerWallet />} />
               <Route path="profit" element={<ResellerProfit />} />
               <Route path="subscriptions" element={<ResellerSubscriptions />} />
+              <Route path="services" element={<ResellerServices />} />
+              <Route path="marketplace" element={<MarketplacePage />} />
               <Route path="onboarding" element={<ResellerOnboarding />} />
               <Route path="developer" element={<ResellerDeveloper />} />
             </Route>
