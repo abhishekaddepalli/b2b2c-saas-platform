@@ -5,23 +5,37 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\Wallet;
-use App\Services\Wallet\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WalletController extends Controller
 {
-    public function __construct(private readonly WalletService $walletService) {}
-
     public function index(Request $request): JsonResponse
     {
-        return response()->json(Wallet::with('organization')->paginate($request->per_page ?? 20));
+        $query = Wallet::with([
+            'organization:id,name,slug,brand_name,status,credit_limit'
+        ]);
+
+        if ($request->filled('search')) {
+            $s = '%' . trim($request->search) . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('id', 'like', $s)
+                  ->orWhereHas('organization', function ($oq) use ($s) {
+                      $oq->where('name', 'like', $s)->orWhere('slug', 'like', $s);
+                  });
+            });
+        }
+
+        return response()->json($query->latest('updated_at')->paginate($request->per_page ?? 25));
     }
 
     public function show(string $orgId): JsonResponse
     {
-        $org = Organization::findOrFail($orgId);
-        $wallet = Wallet::where('organization_id', $orgId)->firstOrFail();
+        $wallet = Wallet::with('organization')
+            ->where('organization_id', $orgId)
+            ->orWhere('id', $orgId)
+            ->firstOrFail();
+
         return response()->json(['data' => $wallet]);
     }
 
@@ -30,18 +44,35 @@ class WalletController extends Controller
         $request->validate([
             'type' => ['required', 'in:credit,debit'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'description' => ['required', 'string'],
+            'description' => ['nullable', 'string'],
         ]);
 
-        $org = Organization::findOrFail($orgId);
-        $key = 'admin-adjust-' . uniqid();
+        $wallet = Wallet::where('organization_id', $orgId)
+            ->orWhere('id', $orgId)
+            ->first();
 
-        if ($request->type === 'credit') {
-            $this->walletService->credit($org, $request->amount, $key, $request->description);
-        } else {
-            $this->walletService->debit($org, $request->amount, $key, $request->description);
+        if (!$wallet) {
+            $wallet = Wallet::create([
+                'organization_id' => $orgId,
+                'balance' => 0,
+                'available_balance' => 0,
+                'currency' => 'INR',
+            ]);
         }
 
-        return response()->json(['message' => 'Wallet balance adjusted successfully.']);
+        $amount = (float)$request->amount;
+
+        if ($request->type === 'credit') {
+            $wallet->increment('balance', $amount);
+            $wallet->increment('available_balance', $amount);
+        } else {
+            $wallet->decrement('balance', $amount);
+            $wallet->decrement('available_balance', $amount);
+        }
+
+        return response()->json([
+            'message' => "Wallet successfully {$request->type}ed with ₹" . number_format($amount, 2) . '.',
+            'data' => $wallet->fresh(['organization']),
+        ]);
     }
 }

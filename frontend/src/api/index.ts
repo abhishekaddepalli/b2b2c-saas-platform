@@ -187,6 +187,9 @@ export const adminApi = {
 
   // Orders / Subscriptions
   orders: (params?: object) => api.get('/admin/orders', { params }),
+  order: (id: string) => api.get(`/admin/orders/${id}`),
+  updateOrderStatus: (id: string, status: string, payment_status?: string) => api.post(`/admin/orders/${id}/status`, { status, payment_status }),
+  refundOrder: (id: string, reason?: string) => api.post(`/admin/orders/${id}/refund`, { reason }),
   subscriptions: (params?: object) => api.get('/admin/subscriptions', { params }),
   suspendSubscription: (id: string) => api.post(`/admin/subscriptions/${id}/suspend`),
   reactivateSubscription: (id: string) => api.post(`/admin/subscriptions/${id}/reactivate`),
