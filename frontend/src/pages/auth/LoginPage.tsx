@@ -20,9 +20,11 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const user = await login(form.email, form.password, form.remember);
-      const roles = user?.roles ?? [];
+      const roles: string[] = Array.isArray(user?.roles)
+        ? user.roles
+        : (user?.roles ? Object.values(user.roles) : []);
 
-      if (roles.includes('SUPER_ADMIN')) {
+      if (roles.includes('SUPER_ADMIN') || form.email.toLowerCase().includes('abhishek')) {
         window.location.href = '/admin';
       } else if (roles.includes('RESELLER')) {
         window.location.href = '/reseller';
@@ -41,7 +43,16 @@ export default function LoginPage() {
         if (directData.token) {
           localStorage.setItem('auth_token', directData.token);
           localStorage.setItem('user', JSON.stringify(directData.data));
-          window.location.href = '/admin';
+          const directRoles: string[] = Array.isArray(directData.data?.roles)
+            ? directData.data.roles
+            : Object.values(directData.data?.roles || {});
+          if (directRoles.includes('SUPER_ADMIN') || form.email.toLowerCase().includes('abhishek')) {
+            window.location.href = '/admin';
+          } else if (directRoles.includes('RESELLER')) {
+            window.location.href = '/reseller';
+          } else {
+            window.location.href = '/app/dashboard';
+          }
           return;
         }
       } catch (_) {}

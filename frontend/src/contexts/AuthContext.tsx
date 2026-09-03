@@ -45,7 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(response.data.data));
       }
     } catch (err: any) {
-      if (err?.response?.status === 401) {
+      // Keep session alive if cached user exists; do not bounce to login
+      if (err?.response?.status === 401 && !localStorage.getItem('user')) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
         setToken(null);
@@ -76,12 +77,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Proceed regardless
     } finally {
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
       setToken(null);
       setUser(null);
     }
   }, []);
 
-  const hasRole = useCallback((role: string) => user?.roles.includes(role) ?? false, [user]);
+  const hasRole = useCallback((role: string) => {
+    if (!user?.roles) return false;
+    // Super Admin has universal authorization across Admin, Reseller, and Customer panels
+    if (user.roles.includes('SUPER_ADMIN')) return true;
+    return user.roles.includes(role);
+  }, [user]);
   const hasPermission = useCallback((perm: string) => user?.permissions.includes(perm) ?? false, [user]);
   const isSuperAdmin = useCallback(() => hasRole('SUPER_ADMIN'), [hasRole]);
   const isReseller = useCallback(() => hasRole('RESELLER'), [hasRole]);

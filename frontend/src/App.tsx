@@ -78,10 +78,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function RequireRole({ role, children }: { role: string; children: React.ReactNode }) {
-  const { hasRole, isLoading, isAuthenticated } = useAuth();
+  const { hasRole, isLoading, isAuthenticated, user } = useAuth();
   if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!hasRole(role)) return <Navigate to="/app/dashboard" replace />;
+  if (!hasRole(role) && !user?.roles?.includes('SUPER_ADMIN')) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
