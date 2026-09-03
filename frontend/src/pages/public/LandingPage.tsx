@@ -74,12 +74,6 @@ export default function LandingPage() {
               >
                 Browse Marketplace
               </Link>
-              <Link
-                to="/login"
-                className="bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-emerald-600/20"
-              >
-                Demo Sign In
-              </Link>
             </div>
           </div>
         </div>

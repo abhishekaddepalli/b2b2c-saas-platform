@@ -116,28 +116,6 @@ export default function LoginPage() {
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-5 bg-slate-50 rounded-xl p-3.5 border border-slate-100">
-            <p className="text-xs font-semibold text-slate-700 mb-2">Click to quick login with demo accounts:</p>
-            <div className="space-y-1.5">
-              {[
-                { role: 'Admin', email: 'admin@saasplatform.com', pass: 'Admin@1234' },
-                { role: 'Reseller', email: 'ravi@techsolutions.com', pass: 'Reseller@1234' },
-                { role: 'Customer', email: 'anjali@example.com', pass: 'Customer@1234' },
-              ].map(({ role, email, pass }) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setForm({ email, password: pass, remember: true })}
-                  className="w-full flex items-center justify-between text-xs p-2 rounded-lg hover:bg-indigo-50/80 hover:text-indigo-700 border border-transparent hover:border-indigo-100 transition-colors text-left"
-                >
-                  <span className="font-semibold text-slate-800">{role}</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{email} / {pass}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-sm text-slate-500 mt-6">

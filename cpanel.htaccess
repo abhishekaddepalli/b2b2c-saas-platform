@@ -29,12 +29,11 @@
     RewriteCond %{REQUEST_URI} ^/check_pdo.php
     RewriteRule ^check_pdo.php$ backend/public/check_pdo.php [L,QSA]
 
-    # Serve Static Build Files if they exist in frontend/dist/
-    RewriteCond %{DOCUMENT_ROOT}/frontend/dist%{REQUEST_URI} -f
-    RewriteRule ^(.*)$ frontend/dist/$1 [L]
+    # Serve static files and existing directories directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
 
-    # SPA Fallback for UI Routes (/install, /login, /admin, /reseller, etc.)
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ frontend/dist/index.html [L]
+    # SPA Fallback for UI Routes (/home, /login, /admin, /reseller, etc.)
+    RewriteRule ^ index.html [L]
 </IfModule>

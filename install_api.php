@@ -15,10 +15,9 @@ $body = json_decode($inputRaw, true) ?? [];
 $params = array_merge($_REQUEST, $body);
 
 $basePath = __DIR__ . '/backend';
-if (!file_exists($basePath)) {
+if (!is_dir($basePath)) {
     $basePath = __DIR__;
 }
-
 $storagePath = $basePath . '/storage';
 
 switch ($action) {
@@ -146,10 +145,64 @@ switch ($action) {
         ]);
         exit;
 
+    case 'reset-admin':
+        try {
+            if (!defined('LARAVEL_START')) {
+                define('LARAVEL_START', microtime(true));
+            }
+            require_once $basePath . '/vendor/autoload.php';
+            $app = require_once $basePath . '/bootstrap/app.php';
+            $console = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+            $console->bootstrap();
+
+            $email = $params['email'] ?? 'abhishek123.as42@gmail.com';
+            $password = $params['password'] ?? '';
+
+            if (empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Password is required.']);
+                exit;
+            }
+
+            $masterOrg = \App\Models\Organization::firstOrCreate(
+                ['type' => 'platform'],
+                ['name' => 'Platform Master', 'slug' => 'platform-master', 'status' => 'active']
+            );
+
+            $user = \App\Models\User::firstOrNew(['email' => $email]);
+            $user->name = $params['name'] ?? 'Super Admin';
+            $user->password = $password; // Automatically hashed once by User model cast
+            $user->status = 'active';
+            $user->email_verified_at = now();
+            $user->current_organization_id = $masterOrg->id;
+            $user->save();
+
+            $superRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'SUPER_ADMIN', 'guard_name' => 'web']);
+            $user->syncRoles([$superRole]);
+            $masterOrg->users()->syncWithoutDetaching([$user->id => ['role_within_org' => 'owner', 'status' => 'active']]);
+
+            // Purge demo users to remove all demo data
+            \App\Models\User::where('email', '!=', $email)->forceDelete();
+
+            // Ensure installed lock exists
+            if (!file_exists($storagePath . '/installed')) {
+                file_put_contents($storagePath . '/installed', date('c'));
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Super Admin password reset successfully and demo accounts removed for {$email}!",
+            ]);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
+
     case 'execute':
-        if (file_exists($storagePath . '/installed')) {
+        if (file_exists($storagePath . '/installed') && !isset($params['force'])) {
             http_response_code(400);
-            echo json_encode(['message' => 'Application is already installed.']);
+            echo json_encode(['message' => 'Application is already installed. Use force to re-run.']);
             exit;
         }
 
@@ -243,16 +296,14 @@ switch ($action) {
                 ['name' => $params['org_name'] ?? 'Platform Master', 'slug' => 'platform-master', 'status' => 'active']
             );
 
-            $admin = \App\Models\User::updateOrCreate(
-                ['email' => $params['admin_email']],
-                [
-                    'name' => $params['admin_name'] ?? 'Super Admin',
-                    'password' => \Illuminate\Support\Facades\Hash::make($params['admin_password']),
-                    'status' => 'active',
-                    'email_verified_at' => now(),
-                    'current_organization_id' => $masterOrg->id,
-                ]
-            );
+            // Create or update Super Admin without double hashing
+            $admin = \App\Models\User::firstOrNew(['email' => $params['admin_email']]);
+            $admin->name = $params['admin_name'] ?? 'Super Admin';
+            $admin->password = $params['admin_password']; // Automatically hashed once by Eloquent 'password' => 'hashed' cast
+            $admin->status = 'active';
+            $admin->email_verified_at = now();
+            $admin->current_organization_id = $masterOrg->id;
+            $admin->save();
 
             try {
                 $superRole = \Spatie\Permission\Models\Role::firstOrCreate(
@@ -264,6 +315,9 @@ switch ($action) {
             }
 
             $masterOrg->users()->syncWithoutDetaching([$admin->id => ['role_within_org' => 'owner', 'status' => 'active']]);
+
+            // Purge dummy demo users to leave a clean production environment
+            \App\Models\User::where('email', '!=', $admin->email)->forceDelete();
 
             file_put_contents($storagePath . '/installed', date('c'));
 

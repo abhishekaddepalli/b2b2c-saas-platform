@@ -84,6 +84,7 @@ export default function InstallerPage() {
       admin_email: adminEmail,
       admin_password: adminPassword,
       org_name: orgName,
+      force: true,
     }),
     onSuccess: (res: any) => {
       setInstalling(false);
