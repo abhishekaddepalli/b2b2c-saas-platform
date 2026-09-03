@@ -175,6 +175,8 @@ export default function App() {
               <Route path="subscriptions" element={<ResellerSubscriptions />} />
               <Route path="services" element={<ResellerServices />} />
               <Route path="marketplace" element={<MarketplacePage />} />
+              <Route path="products/:slug" element={<ProductDetailPage />} />
+              <Route path="services/:slug" element={<ServiceDetailPage />} />
               <Route path="onboarding" element={<ResellerOnboarding />} />
               <Route path="developer" element={<ResellerDeveloper />} />
             </Route>
@@ -190,6 +192,8 @@ export default function App() {
               <Route path="subscriptions" element={<CustomerSubscriptions />} />
               <Route path="invoices" element={<CustomerInvoices />} />
               <Route path="marketplace" element={<MarketplacePage />} />
+              <Route path="products/:slug" element={<ProductDetailPage />} />
+              <Route path="services/:slug" element={<ServiceDetailPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,21 +1,29 @@
 import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Zap, ArrowLeft, CheckCircle2, ShieldCheck, Server,
   Loader2, IndianRupee, Sparkles, Clock, RefreshCw,
-  Layers, ChevronRight, Check
+  Layers, ChevronRight, Check, Users
 } from 'lucide-react';
-import { marketplaceApi, ordersApi } from '../../api';
+import { marketplaceApi, ordersApi, resellerApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ServiceDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { isReseller, isSuperAdmin, isAuthenticated } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user, isReseller, isSuperAdmin, isAuthenticated } = useAuth();
+
   const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [ordering, setOrdering] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
+
+  const isResellerPath = location.pathname.startsWith('/reseller');
+  const isCustomerPath = location.pathname.startsWith('/app');
+  const backLink = isResellerPath ? '/reseller/marketplace' : isCustomerPath ? '/app/marketplace' : '/marketplace';
 
   const { data: serviceData, isLoading } = useQuery({
     queryKey: ['marketplace', 'service', slug],
@@ -23,20 +31,39 @@ export default function ServiceDetailPage() {
     enabled: !!slug,
   });
 
+  const { data: customersData } = useQuery({
+    queryKey: ['reseller', 'customers-dropdown'],
+    queryFn: () => resellerApi.customers({ per_page: 50 }).then(r => r.data?.data ?? []),
+    enabled: isReseller(),
+  });
+
+  const customers: any[] = customersData ?? [];
   const service = serviceData;
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
-      navigate(`/login?redirect=/services/${slug}`);
+      navigate(`/login?redirect=${location.pathname}`);
       return;
     }
     try {
       setOrdering(true);
-      await ordersApi.create({
+      const payload: any = {
         items: [{ service_id: service.id, interval: selectedInterval }],
         payment_method: 'wallet',
-      });
-      setOrderSuccess('Subscription activated successfully! Your managed service is live.');
+      };
+      if (isReseller() && selectedCustomerId) {
+        payload.customer_id = selectedCustomerId;
+      }
+
+      if (isReseller()) {
+        await resellerApi.createOrder(payload);
+        qc.invalidateQueries({ queryKey: ['reseller', 'wallet'] });
+        qc.invalidateQueries({ queryKey: ['reseller', 'subscriptions'] });
+      } else {
+        await ordersApi.create(payload);
+        qc.invalidateQueries({ queryKey: ['customer', 'subscriptions'] });
+      }
+      setOrderSuccess(`Subscription activated successfully for ${service.name}!`);
     } catch (err: any) {
       alert(err?.response?.data?.message || err?.message || 'Failed to activate service subscription.');
     } finally {
@@ -58,12 +85,16 @@ export default function ServiceDetailPage() {
         <Server className="w-12 h-12 text-slate-500 mx-auto" />
         <h2 className="text-xl font-bold">Service Not Found</h2>
         <p className="text-xs text-slate-400">The recurring cloud service does not exist or has been modified.</p>
-        <Link to="/marketplace" className="inline-block px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-xs">
+        <Link to={backLink} className="inline-block px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-xs">
           Return to Marketplace
         </Link>
       </div>
     );
   }
+
+  const categoryName = typeof service?.category === 'object'
+    ? (service?.category?.name || 'Recurring Service')
+    : (service?.category || 'Recurring Service');
 
   const basePrice = Number(service.plans?.[0]?.price ?? service.price ?? 1999);
   const multiplier = selectedInterval === 'yearly' ? 10 : 1;
@@ -74,20 +105,27 @@ export default function ServiceDetailPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-3 text-xs">
         <Link
-          to="/marketplace"
+          to={backLink}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Marketplace</span>
         </Link>
         <span className="text-slate-600">/</span>
-        <span className="text-indigo-400 font-medium capitalize">Recurring Managed Services</span>
+        <span className="text-indigo-400 font-medium capitalize">{categoryName}</span>
       </div>
 
       {orderSuccess && (
-        <div className="p-4 bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span>{orderSuccess}</span>
+        <div className="p-4 bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 rounded-2xl text-xs font-semibold flex items-center justify-between gap-2.5 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{orderSuccess}</span>
+          </div>
+          {isReseller() && (
+            <Link to="/reseller/subscriptions" className="text-white underline font-bold hover:text-emerald-300">
+              View in Subscriptions →
+            </Link>
+          )}
         </div>
       )}
 
@@ -98,7 +136,7 @@ export default function ServiceDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-400/30">
-                Managed Cloud Service
+                {categoryName}
               </span>
               <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" /> Auto-Renewable
@@ -171,7 +209,7 @@ export default function ServiceDetailPage() {
 
         {/* Right: Checkout Box */}
         <div className="space-y-4">
-          <div className="p-6 rounded-3xl bg-slate-900/95 border border-indigo-500/30 shadow-2xl space-y-6">
+          <div className="p-6 rounded-3xl bg-slate-900/95 border border-indigo-500/30 shadow-2xl space-y-5">
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Plan Summary</span>
               <div className="flex items-baseline gap-2">
@@ -181,6 +219,30 @@ export default function ServiceDetailPage() {
                 <span className="text-xs text-slate-400 font-medium">/{selectedInterval}</span>
               </div>
             </div>
+
+            {/* Reseller Customer Assignment */}
+            {isReseller() && (
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-xs font-bold text-slate-300 flex items-center justify-between">
+                  <span>Assign Service to Client:</span>
+                  <Link to="/reseller/customers" className="text-[10px] text-indigo-400 hover:underline">
+                    + New Client
+                  </Link>
+                </label>
+                <select
+                  value={selectedCustomerId}
+                  onChange={e => setSelectedCustomerId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Self / Reseller Organization</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.email}) {c.company ? `— ${c.company}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleSubscribe}
@@ -192,7 +254,7 @@ export default function ServiceDetailPage() {
               ) : (
                 <Zap className="w-4 h-4" />
               )}
-              <span>{isReseller() ? 'Provision Subscription (Prepaid)' : 'Subscribe & Launch Service'}</span>
+              <span>{isReseller() ? 'Provision Subscription (Wallet Debit)' : 'Subscribe & Launch Service'}</span>
             </button>
 
             <div className="space-y-2 pt-2 border-t border-slate-800 text-[11px] text-slate-400">

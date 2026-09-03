@@ -1,31 +1,27 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Filter, Heart, Loader2, Package, Search, Server,
-  Sparkles, Star, Zap, ArrowUpDown, SlidersHorizontal,
-  Layers, X, CheckCircle2, ArrowRight, ShoppingCart,
-  Check, ShieldCheck
+  Package, Server, Search, Star, Heart, ArrowUpDown,
+  Filter, ShoppingCart, Zap, Check, AlertCircle,
+  Loader2, ShieldCheck, IndianRupee, Sparkles, X, CheckCircle2, User
 } from 'lucide-react';
-import { marketplaceApi } from '../../api';
+import { marketplaceApi, resellerApi, ordersApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
-import type { AdminPricing, CustomerPricing, Product, ResellerPricing, Service } from '../../types';
+import type {
+  Product, Service, AdminPricing, ResellerPricing, CustomerPricing
+} from '../../types';
 
-// ─── Role-aware price component ─────────────────────────────────────────────
-function PriceDisplay({ pricing, role }: { pricing: any; role: string }) {
-  if (!pricing) return <span className="text-slate-500 text-xs">Price on request</span>;
+function PriceDisplay({ pricing, role }: { pricing?: any; role: string }) {
+  if (!pricing) return null;
 
-  if (role === 'admin') {
+  if (role === 'superadmin' || role === 'admin') {
     const p = pricing as AdminPricing;
     return (
       <div className="space-y-1 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 text-xs">
-        <div className="flex justify-between text-slate-400">
+        <div className="flex justify-between text-slate-400 text-[11px]">
           <span>Cost Price:</span>
-          <span className="font-semibold text-slate-300">₹{p.cost_price}</span>
-        </div>
-        <div className="flex justify-between text-slate-400">
-          <span>Reseller Price:</span>
-          <span className="font-semibold text-violet-400">₹{p.reseller_price}</span>
+          <span className="font-semibold text-slate-200">₹{p.cost_price}</span>
         </div>
         <div className="flex justify-between text-slate-200 font-bold border-t border-slate-800 pt-1">
           <span>Retail Price:</span>
@@ -71,10 +67,22 @@ export default function MarketplacePage() {
   const role = user?.pricing_role ?? 'customer';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isReseller = role === 'reseller';
+  const basePath = isReseller ? '/reseller' : location.pathname.startsWith('/app') ? '/app' : '';
 
   const [tab, setTab] = useState<'all' | 'products' | 'services'>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
+
+  // Quick Order / Provision Modal State
+  const [activeModalItem, setActiveModalItem] = useState<{ type: 'product' | 'service'; item: any } | null>(null);
+  const [orderCustomerId, setOrderCustomerId] = useState('');
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [orderInterval, setOrderInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderAlert, setOrderAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Queries
   const { data: productsData, isLoading: loadingProducts } = useQuery({
@@ -98,6 +106,22 @@ export default function MarketplacePage() {
     enabled: !!user,
   });
 
+  // Reseller-specific data
+  const { data: customersData } = useQuery({
+    queryKey: ['reseller', 'customers-list'],
+    queryFn: () => resellerApi.customers({ per_page: 50 }).then(r => r.data?.data ?? []),
+    enabled: isReseller,
+  });
+
+  const { data: walletData } = useQuery({
+    queryKey: ['reseller', 'wallet'],
+    queryFn: () => resellerApi.wallet().then(r => r.data?.data),
+    enabled: isReseller,
+  });
+
+  const customers: any[] = customersData ?? [];
+  const walletBalance = Number(walletData?.available_balance ?? 0);
+
   const wishlistIds = new Set((Array.isArray(wishlistData) ? wishlistData : []).map((w: any) => w.product_id || w.service_id));
 
   const wishlistMutation = useMutation({
@@ -111,23 +135,102 @@ export default function MarketplacePage() {
   const services: Service[] = servicesData?.data ?? [];
   const recProducts = recData?.recommended_products ?? [];
 
+  const handleOpenOrderModal = (type: 'product' | 'service', item: any) => {
+    setActiveModalItem({ type, item });
+    setOrderCustomerId('');
+    setOrderQuantity(1);
+    setOrderInterval('monthly');
+    setOrderAlert(null);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!activeModalItem) return;
+    setIsSubmittingOrder(true);
+    setOrderAlert(null);
+
+    try {
+      if (activeModalItem.type === 'product') {
+        const payload: any = {
+          items: [{ product_id: activeModalItem.item.id, quantity: orderQuantity }],
+          payment_method: 'wallet',
+        };
+        if (orderCustomerId) payload.customer_id = orderCustomerId;
+
+        if (isReseller) {
+          await resellerApi.createOrder(payload);
+          queryClient.invalidateQueries({ queryKey: ['reseller', 'wallet'] });
+          queryClient.invalidateQueries({ queryKey: ['reseller', 'orders'] });
+        } else {
+          await ordersApi.create(payload);
+        }
+
+        setOrderAlert({
+          type: 'success',
+          message: `Wholesale order placed successfully! ${orderQuantity} digital license key(s) provisioned immediately.`,
+        });
+      } else {
+        const payload: any = {
+          items: [{ service_id: activeModalItem.item.id, interval: orderInterval }],
+          payment_method: 'wallet',
+        };
+        if (orderCustomerId) payload.customer_id = orderCustomerId;
+
+        if (isReseller) {
+          await resellerApi.createOrder(payload);
+          queryClient.invalidateQueries({ queryKey: ['reseller', 'wallet'] });
+          queryClient.invalidateQueries({ queryKey: ['reseller', 'subscriptions'] });
+        } else {
+          await ordersApi.create(payload);
+        }
+
+        setOrderAlert({
+          type: 'success',
+          message: `Cloud subscription activated successfully for ${activeModalItem.item.name}!`,
+        });
+      }
+    } catch (err: any) {
+      setOrderAlert({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to complete order. Please check wallet balance.',
+      });
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  };
+
   return (
-    <div className="w-full bg-slate-950 text-slate-100 rounded-3xl p-4 sm:p-6 lg:p-8 space-y-10 border border-slate-800/80 shadow-2xl">
-      {/* Hero & Sponsored Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 sm:p-10 border border-indigo-500/20 shadow-2xl">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-1.5 bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Commercial Cloud Marketplace
+    <div className="w-full bg-slate-950 text-slate-100 rounded-3xl p-4 sm:p-6 lg:p-8 space-y-8 border border-slate-800/80 shadow-2xl">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900 p-6 sm:p-8 border border-indigo-500/20">
+        <div className="max-w-2xl space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Digital Marketplace & SaaS Distribution</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            Enterprise Digital Products & Recurring Services
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Enterprise Product Catalog & Services
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            {role === 'admin' && 'Super Admin Mode — Real-time cost price, wholesale reseller pricing, and platform margins.'}
-            {role === 'reseller' && 'Reseller Mode — Exclusive wholesale rates with instant profit markups.'}
-            {role === 'customer' && 'Discover premium SaaS tools, digital licenses, and managed cloud recurring services.'}
+            {isReseller
+              ? 'Purchase digital licenses at wholesale pricing, assign immediately to your customer accounts, and settle automatically via your prepaid wallet.'
+              : 'Browse high-performance digital tools, enterprise security licenses, and managed cloud infrastructure.'}
           </p>
         </div>
+
+        {isReseller && (
+          <div className="mt-4 pt-4 border-t border-indigo-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Your Prepaid Wallet:</span>
+              <span className="text-emerald-400 font-bold font-mono">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <Link
+              to="/reseller/wallet"
+              className="text-indigo-400 hover:text-indigo-300 font-bold underline text-xs"
+            >
+              + Top-up Wallet Funds
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Recommended Items */}
@@ -144,11 +247,13 @@ export default function MarketplacePage() {
             {recProducts.map((p: any) => (
               <Link
                 key={p.id}
-                to={`/products/${p.slug}`}
+                to={`${basePath}/products/${p.slug}`}
                 className="p-4 rounded-2xl border border-slate-800/80 bg-slate-950/70 hover:border-indigo-500/40 hover:bg-slate-900 transition-all flex flex-col justify-between group"
               >
                 <div>
-                  <div className="text-[11px] text-indigo-400 font-bold mb-1 uppercase tracking-wider">{p.category?.name || 'Featured'}</div>
+                  <div className="text-[11px] text-indigo-400 font-bold mb-1 uppercase tracking-wider">
+                    {typeof p.category === 'object' ? p.category?.name : (p.category || 'Featured')}
+                  </div>
                   <h3 className="font-bold text-white text-sm line-clamp-1 mb-1 group-hover:text-indigo-400 transition-colors">{p.name}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{p.short_description}</p>
                 </div>
@@ -174,8 +279,8 @@ export default function MarketplacePage() {
         </div>
 
         {/* Filters & Sorting */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1">
             {(['all', 'products', 'services'] as const).map(t => (
               <button
                 key={t}
@@ -229,20 +334,21 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {products.map(p => {
                     const inWishlist = wishlistIds.has(p.id);
+                    const categoryName = typeof p.category === 'object' ? p.category?.name : (p.category || 'Digital');
 
                     return (
                       <div
                         key={p.id}
                         className="group bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all flex flex-col justify-between"
                       >
-                        <Link to={`/products/${p.slug}`} className="block">
+                        <Link to={`${basePath}/products/${p.slug}`} className="block">
                           <div className="aspect-video bg-slate-950 relative overflow-hidden">
                             {p.images?.[0] ? (
                               <img src={p.images[0].path} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-indigo-950 via-slate-900 to-violet-950 p-4 text-center">
                                 <Package className="w-10 h-10 text-indigo-400 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-mono text-indigo-300 uppercase tracking-widest">{p.category?.name || 'Digital SaaS'}</span>
+                                <span className="text-[10px] font-mono text-indigo-300 uppercase tracking-widest">{categoryName}</span>
                               </div>
                             )}
 
@@ -262,7 +368,7 @@ export default function MarketplacePage() {
 
                           <div className="p-5 space-y-2.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{p.category?.name || 'Digital'}</span>
+                              <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{categoryName}</span>
                               <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px]">
                                 <Star className="w-3 h-3 fill-current" /> 4.9
                               </span>
@@ -281,13 +387,24 @@ export default function MarketplacePage() {
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={p.pricing} role={role} />
 
-                          <Link
-                            to={`/products/${p.slug}`}
-                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <ShoppingCart className="w-3.5 h-3.5" />
-                            <span>{role === 'reseller' ? 'Wholesale Order' : 'Order License'}</span>
-                          </Link>
+                          {isReseller ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOrderModal('product', p)}
+                              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <span>Wholesale Order</span>
+                            </button>
+                          ) : (
+                            <Link
+                              to={`${basePath}/products/${p.slug}`}
+                              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <span>Order License</span>
+                            </Link>
+                          )}
                         </div>
                       </div>
                     );
@@ -315,20 +432,21 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {services.map(s => {
                     const inWishlist = wishlistIds.has(s.id);
+                    const categoryName = typeof s.category === 'object' ? s.category?.name : (s.category || 'Recurring Service');
 
                     return (
                       <div
                         key={s.id}
                         className="group bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all flex flex-col justify-between"
                       >
-                        <Link to={`/services/${s.slug}`} className="block">
+                        <Link to={`${basePath}/services/${s.slug}`} className="block">
                           <div className="aspect-video bg-slate-950 relative overflow-hidden">
                             {s.image_url ? (
                               <img src={s.image_url} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-violet-950 via-slate-900 to-indigo-950 p-4 text-center">
                                 <Server className="w-10 h-10 text-violet-400 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">{s.category?.name || 'Cloud Managed'}</span>
+                                <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">{categoryName}</span>
                               </div>
                             )}
 
@@ -348,7 +466,7 @@ export default function MarketplacePage() {
 
                           <div className="p-5 space-y-2.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{s.category?.name || 'Recurring Service'}</span>
+                              <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{categoryName}</span>
                               <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px]">
                                 <Star className="w-3 h-3 fill-current" /> 5.0
                               </span>
@@ -367,13 +485,24 @@ export default function MarketplacePage() {
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={(s as any).pricing ?? s.plans?.[0]?.pricing} role={role} />
 
-                          <Link
-                            to={`/services/${s.slug}`}
-                            className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>{role === 'reseller' ? 'Provision Service' : 'Subscribe Service'}</span>
-                          </Link>
+                          {isReseller ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOrderModal('service', s)}
+                              className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              <span>Provision Service</span>
+                            </button>
+                          ) : (
+                            <Link
+                              to={`${basePath}/services/${s.slug}`}
+                              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              <span>Subscribe Service</span>
+                            </Link>
+                          )}
                         </div>
                       </div>
                     );
@@ -382,6 +511,221 @@ export default function MarketplacePage() {
               )}
             </section>
           )}
+        </div>
+      )}
+
+      {/* QUICK PROVISION & ASSIGN MODAL FOR RESELLERS */}
+      {activeModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-950 text-slate-100 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-indigo-500/40 space-y-5 text-xs max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                  {activeModalItem.type === 'product' ? <Package className="w-5 h-5" /> : <Server className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">
+                    {activeModalItem.type === 'product' ? 'Wholesale License Provisioning' : 'Provision Cloud Subscription'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Instantly debit wallet & assign to client account</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModalItem(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Alert Box if present */}
+            {orderAlert && (
+              <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-2.5 ${
+                orderAlert.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200' : 'bg-red-500/20 border-red-500/40 text-red-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {orderAlert.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" /> : <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />}
+                  <span>{orderAlert.message}</span>
+                </div>
+                {orderAlert.type === 'success' && (
+                  <Link to="/reseller/orders" className="text-white underline font-bold hover:text-emerald-300 shrink-0">
+                    View Orders →
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* Item Summary Box */}
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400">
+                  {typeof activeModalItem.item.category === 'object' ? activeModalItem.item.category?.name : (activeModalItem.item.category || 'Digital')}
+                </span>
+                <h4 className="font-bold text-white text-sm mt-0.5">{activeModalItem.item.name}</h4>
+              </div>
+              <Link
+                to={`${basePath}/${activeModalItem.type === 'product' ? 'products' : 'services'}/${activeModalItem.item.slug}`}
+                className="text-[11px] font-semibold text-indigo-400 hover:underline shrink-0"
+              >
+                Full Specs →
+              </Link>
+            </div>
+
+            {/* Pricing Calculations */}
+            {(() => {
+              const pricing = activeModalItem.item.pricing as any;
+              const unitWholesale = Number(pricing?.your_price ?? pricing?.wholesale_price ?? activeModalItem.item.price ?? 999);
+              const unitRetail = Number(pricing?.customer_price ?? activeModalItem.item.retail_price ?? unitWholesale * 1.25);
+              const unitProfit = Number(pricing?.your_profit ?? Math.max(0, unitRetail - unitWholesale));
+
+              const totalWholesale = unitWholesale * (activeModalItem.type === 'product' ? orderQuantity : (orderInterval === 'yearly' ? 10 : 1));
+              const totalRetail = unitRetail * (activeModalItem.type === 'product' ? orderQuantity : (orderInterval === 'yearly' ? 10 : 1));
+              const totalProfit = unitProfit * (activeModalItem.type === 'product' ? orderQuantity : (orderInterval === 'yearly' ? 10 : 1));
+              const remainingWallet = walletBalance - totalWholesale;
+
+              return (
+                <div className="space-y-4">
+                  {/* Financial Breakdown */}
+                  <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-2">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Total Wholesale Cost (Debited from Wallet):</span>
+                      <span className="font-mono font-black text-white text-sm">₹{totalWholesale.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[11px]">
+                      <span>Customer Retail Bill:</span>
+                      <span className="font-mono text-slate-200">₹{totalRetail.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-400 font-bold pt-1.5 border-t border-indigo-900/60">
+                      <span>Your Net Margin Earned:</span>
+                      <span className="font-mono text-sm">+₹{totalProfit.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+
+                  {/* Quantity or Billing Interval Selector */}
+                  {activeModalItem.type === 'product' ? (
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-300">Quantity of Licenses</label>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 5, 10].map(q => (
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() => setOrderQuantity(q)}
+                            className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                              orderQuantity === q
+                                ? 'bg-indigo-600 text-white border-indigo-500'
+                                : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-300">Billing Cycle</label>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setOrderInterval('monthly')}
+                          className={`p-2.5 rounded-xl border text-left font-bold transition-all ${
+                            orderInterval === 'monthly'
+                              ? 'bg-indigo-600 text-white border-indigo-500'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          Monthly Billing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderInterval('yearly')}
+                          className={`p-2.5 rounded-xl border text-left font-bold transition-all ${
+                            orderInterval === 'yearly'
+                              ? 'bg-indigo-600 text-white border-indigo-500'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          Annual (Save 17%)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assign to Customer Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-slate-300 flex items-center justify-between">
+                      <span>Assign to Customer Account:</span>
+                      <Link to="/reseller/customers" className="text-[10px] text-indigo-400 hover:underline">
+                        + New Customer
+                      </Link>
+                    </label>
+                    <select
+                      value={orderCustomerId}
+                      onChange={e => setOrderCustomerId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">Reseller Organization Inventory (Self)</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.email}) {c.company ? `— ${c.company}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Wallet Check Footer */}
+                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="text-slate-400">Available Wallet: </span>
+                      <strong className="text-white font-mono">₹{walletBalance.toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Balance After: </span>
+                      <strong className={`font-mono ${remainingWallet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        ₹{remainingWallet.toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {remainingWallet < 0 && (
+                    <div className="p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200 flex items-center justify-between">
+                      <span>Insufficient wallet balance for this order.</span>
+                      <Link to="/reseller/wallet" className="underline font-bold text-white hover:text-red-300">
+                        Top-up ₹{Math.abs(remainingWallet).toLocaleString('en-IN')} →
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Submit Actions */}
+                  <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalItem(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-800 text-slate-300 hover:bg-slate-900 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmittingOrder || remainingWallet < 0}
+                      onClick={handleConfirmOrder}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                    >
+                      {isSubmittingOrder ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="w-4 h-4" />
+                      )}
+                      <span>Confirm & Debit Wallet</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
     </div>
