@@ -67,7 +67,6 @@ class ProductController extends Controller
             'category_id' => $request->category_id,
             'visibility' => $request->visibility ?? 'public',
             'status' => $request->status ?? 'active',
-            'currency' => 'INR',
             'featured' => $request->boolean('featured', false),
         ]);
 

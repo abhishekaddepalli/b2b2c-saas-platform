@@ -62,8 +62,8 @@ class ServiceController extends Controller
                 'full_description' => $request->full_description,
                 'status' => $request->status ?? 'active',
                 'visibility' => $request->visibility ?? 'public',
-                'billing_type' => $request->billing_type ?? 'recurring',
-                'billing_interval' => $request->billing_interval ?? 'monthly',
+                'billing_type' => ($request->billing_interval === 'one_time' || $request->billing_type === 'one_time') ? 'one_time' : 'recurring',
+                'billing_interval' => in_array($request->billing_interval, ['monthly', 'quarterly', 'half_yearly', 'yearly', 'custom']) ? $request->billing_interval : 'monthly',
                 'trial_days' => (int)($request->trial_days ?? 0),
                 'featured' => $request->boolean('featured', false),
             ]);

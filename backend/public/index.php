@@ -17,21 +17,27 @@ $_ENV['QUEUE_CONNECTION'] = 'sync';
 $_ENV['REDIS_HOST'] = '127.0.0.1';
 
 // Restore Authorization header if stripped by LiteSpeed / Apache FastCGI
-if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
-    if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
-    } elseif (isset($_SERVER['HTTP_X_AUTH_TOKEN'])) {
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $_SERVER['HTTP_X_AUTH_TOKEN'];
-    } elseif (function_exists('apache_request_headers')) {
-        $headers = apache_request_headers();
-        if (isset($headers['Authorization'])) {
-            $_SERVER['HTTP_AUTHORIZATION'] = $headers['Authorization'];
-        } elseif (isset($headers['authorization'])) {
-            $_SERVER['HTTP_AUTHORIZATION'] = $headers['authorization'];
-        } elseif (isset($headers['X-Auth-Token'])) {
-            $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $headers['X-Auth-Token'];
-        }
+$authToken = null;
+if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+    $authToken = $_SERVER['HTTP_AUTHORIZATION'];
+} elseif (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+    $authToken = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+} elseif (!empty($_SERVER['HTTP_X_AUTH_TOKEN'])) {
+    $authToken = 'Bearer ' . $_SERVER['HTTP_X_AUTH_TOKEN'];
+} elseif (function_exists('apache_request_headers')) {
+    $headers = apache_request_headers();
+    if (!empty($headers['Authorization'])) {
+        $authToken = $headers['Authorization'];
+    } elseif (!empty($headers['authorization'])) {
+        $authToken = $headers['authorization'];
+    } elseif (!empty($headers['X-Auth-Token'])) {
+        $authToken = 'Bearer ' . $headers['X-Auth-Token'];
+    } elseif (!empty($headers['x-auth-token'])) {
+        $authToken = 'Bearer ' . $headers['x-auth-token'];
     }
+}
+if ($authToken) {
+    $_SERVER['HTTP_AUTHORIZATION'] = $authToken;
 }
 
 // Determine if the application is under maintenance...

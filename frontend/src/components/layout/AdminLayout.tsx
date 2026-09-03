@@ -167,8 +167,8 @@ export default function AdminLayout() {
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
             </button>
             <Link
-              to="/"
-              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100"
+              to="/marketplace"
+              className="text-xs text-slate-500 hover:text-slate-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 font-semibold transition-colors flex items-center gap-1.5"
             >
               View Marketplace
             </Link>

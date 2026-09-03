@@ -55,9 +55,9 @@ class MarketplaceController extends Controller
 
         if ($request->search) {
             $query->where(fn($q) => $q
-                ->where('name', 'ilike', "%{$request->search}%")
-                ->orWhere('short_description', 'ilike', "%{$request->search}%")
-                ->orWhere('sku', 'ilike', "%{$request->search}%")
+                ->where('name', 'like', "%{$request->search}%")
+                ->orWhere('short_description', 'like', "%{$request->search}%")
+                ->orWhere('sku', 'like', "%{$request->search}%")
             );
         }
 
@@ -112,7 +112,7 @@ class MarketplaceController extends Controller
         $query = $this->visibleServicesQuery($user);
 
         if ($request->search) {
-            $query->where('name', 'ilike', "%{$request->search}%");
+            $query->where('name', 'like', "%{$request->search}%");
         }
         if ($request->category_id) $query->where('category_id', $request->category_id);
         if ($request->billing_interval) $query->where('billing_interval', $request->billing_interval);
