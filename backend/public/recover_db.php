@@ -18,12 +18,14 @@ if (file_exists($backupPath)) {
     }
 }
 
-// 2. If password provided via POST/GET
+// 2. Read inputs
 if (!empty($_REQUEST['pass'])) {
     $foundPass = trim($_REQUEST['pass']);
 }
+$dbUser = !empty($_REQUEST['user']) ? trim($_REQUEST['user']) : 'spideclo_resellsaasdb_user';
+$dbName = !empty($_REQUEST['dbname']) ? trim($_REQUEST['dbname']) : 'spideclo_resellsaas_db';
 
-// 3. If password found or provided, update backend/.env
+// 3. If password provided, update backend/.env
 $updated = false;
 if (!empty($foundPass)) {
     $envContent = file_exists($envPath) ? file_get_contents($envPath) : '';
@@ -33,41 +35,56 @@ if (!empty($foundPass)) {
         $envContent .= "\nDB_PASSWORD={$foundPass}";
     }
     $envContent = preg_replace('/^DB_CONNECTION=.*/m', 'DB_CONNECTION=mysql', $envContent);
-    $envContent = preg_replace('/^DB_HOST=.*/m', 'DB_HOST=127.0.0.1', $envContent);
-    $envContent = preg_replace('/^DB_PORT=.*/m', 'DB_PORT=3306', $envContent);
-    $envContent = preg_replace('/^DB_DATABASE=.*/m', 'DB_DATABASE=spideclo_resellsaas_db', $envContent);
-    $envContent = preg_replace('/^DB_USERNAME=.*/m', 'DB_USERNAME=spideclo_resellsaasdb_user', $envContent);
+    $envContent = preg_replace('/^DB_DATABASE=.*/m', "DB_DATABASE={$dbName}", $envContent);
+    $envContent = preg_replace('/^DB_USERNAME=.*/m', "DB_USERNAME={$dbUser}", $envContent);
     $envContent = preg_replace('/^CACHE_DRIVER=.*/m', 'CACHE_DRIVER=file', $envContent);
     $envContent = preg_replace('/^SESSION_DRIVER=.*/m', 'SESSION_DRIVER=file', $envContent);
     $envContent = preg_replace('/^QUEUE_CONNECTION=.*/m', 'QUEUE_CONNECTION=sync', $envContent);
     file_put_contents($envPath, $envContent);
-    // Back up so it is never lost
     @copy($envPath, $backupPath);
     $updated = true;
 }
 
-// 4. Test PDO connection
+// 4. Test PDO connection with multiple connection strategies (localhost, 127.0.0.1, unix_socket)
 $currentEnv = file_exists($envPath) ? file_get_contents($envPath) : '';
 preg_match('/^DB_PASSWORD=(.*)$/m', $currentEnv, $mPass);
 $curPass = trim($mPass[1] ?? '');
 
 $connSuccess = false;
 $connError = null;
+$workingHost = null;
+
 if (!empty($curPass)) {
-    try {
-        $pdo = new PDO('mysql:host=127.0.0.1;port=3306;dbname=spideclo_resellsaas_db;charset=utf8mb4', 'spideclo_resellsaasdb_user', $curPass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_TIMEOUT => 4,
-        ]);
-        $connSuccess = true;
-    } catch (\Throwable $e) {
-        $connError = $e->getMessage();
+    $strategies = [
+        ['host' => 'localhost', 'dsn' => "mysql:host=localhost;dbname={$dbName};charset=utf8mb4"],
+        ['host' => '127.0.0.1', 'dsn' => "mysql:host=127.0.0.1;port=3306;dbname={$dbName};charset=utf8mb4"],
+        ['host' => 'localhost', 'dsn' => "mysql:unix_socket=/var/lib/mysql/mysql.sock;dbname={$dbName};charset=utf8mb4"],
+    ];
+
+    foreach ($strategies as $strat) {
+        try {
+            $pdo = new PDO($strat['dsn'], $dbUser, $curPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 3,
+            ]);
+            $connSuccess = true;
+            $workingHost = $strat['host'];
+            break;
+        } catch (\Throwable $e) {
+            $connError = $e->getMessage();
+        }
+    }
+
+    if ($connSuccess && $workingHost) {
+        $envContent = file_get_contents($envPath);
+        $envContent = preg_replace('/^DB_HOST=.*/m', "DB_HOST={$workingHost}", $envContent);
+        file_put_contents($envPath, $envContent);
     }
 } else {
-    $connError = 'DB_PASSWORD is empty in backend/.env.';
+    $connError = 'DB_PASSWORD is empty in backend/.env. Please enter your cPanel MySQL password.';
 }
 
-// If connected, synchronize Super Admin account
+// 5. If connected, synchronize Super Admin account
 $adminSynced = false;
 if ($connSuccess) {
     try {
@@ -121,16 +138,17 @@ if ($connSuccess) {
         \App\Models\User::where('email', '!=', 'abhishek123.as42@gmail.com')->forceDelete();
         $adminSynced = true;
     } catch (\Throwable $e) {
-        $connError = 'Database connected but admin sync had notice: ' . $e->getMessage();
+        $connError = 'Database connected but admin sync notice: ' . $e->getMessage();
     }
 }
 
-// Return JSON if requested by API
+// Return JSON if requested
 if (isset($_GET['format']) && $_GET['format'] === 'json') {
     header('Content-Type: application/json');
     echo json_encode([
         'db_updated' => $updated,
         'connection_successful' => $connSuccess,
+        'working_host' => $workingHost,
         'admin_synced' => $adminSynced,
         'error' => $connError,
     ], JSON_PRETTY_PRINT);
@@ -147,11 +165,14 @@ header('Content-Type: text/html; charset=utf-8');
     <title>Database Setup & Super Admin Sync</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f19; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; box-sizing: border-box; }
-        .card { background: #161f30; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #23324a; max-width: 480px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); text-align: center; }
+        .card { background: #161f30; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #23324a; max-width: 520px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); text-align: center; }
         h1 { color: #6366f1; font-size: 1.5rem; margin-top: 0; margin-bottom: 0.5rem; }
         p { color: #94a3b8; font-size: 0.875rem; margin-bottom: 1.5rem; line-height: 1.5; }
         .success-box { background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; color: #6ee7b7; padding: 1.25rem; border-radius: 1rem; margin-bottom: 1.5rem; text-align: left; }
         .alert { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.82rem; margin-bottom: 1.5rem; text-align: left; }
+        .help-box { background: rgba(99, 102, 241, 0.1); border: 1px solid #6366f1; color: #cbd5e1; padding: 1rem; border-radius: 0.75rem; font-size: 0.8rem; margin-bottom: 1.5rem; text-align: left; line-height: 1.6; }
+        .help-box ol { margin: 0.5rem 0 0 1.2rem; padding: 0; }
+        .help-box li { margin-bottom: 0.35rem; }
         .field { margin-bottom: 1rem; text-align: left; }
         label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.4rem; }
         input { width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid #23324a; border-radius: 0.75rem; padding: 0.75rem 1rem; color: #f8fafc; font-size: 0.9rem; font-family: monospace; outline: none; }
@@ -166,8 +187,9 @@ header('Content-Type: text/html; charset=utf-8');
             <h1 style="color: #10b981;">🎉 System Online & Connected!</h1>
             <p>Database connected and your master Super Admin account is 100% active.</p>
             <div class="success-box">
-                <div><strong>Database:</strong> spideclo_resellsaas_db</div>
-                <div><strong>User:</strong> spideclo_resellsaasdb_user</div>
+                <div><strong>Database:</strong> <?= htmlspecialchars($dbName) ?></div>
+                <div><strong>User:</strong> <?= htmlspecialchars($dbUser) ?></div>
+                <div><strong>Working Host:</strong> <?= htmlspecialchars($workingHost) ?></div>
                 <div><strong>Admin Email:</strong> abhishek123.as42@gmail.com</div>
                 <div><strong>Admin Password:</strong> Admin@1234</div>
                 <div><strong>Status:</strong> Connected & Operational</div>
@@ -178,19 +200,28 @@ header('Content-Type: text/html; charset=utf-8');
             <p>Enter your cPanel MySQL password below to connect the database and activate Super Admin access.</p>
             <?php if ($connError): ?>
                 <div class="alert">⚠️ <?= htmlspecialchars($connError) ?></div>
+                <div class="help-box">
+                    <strong>💡 How to fix MySQL Error 1045 in 15 seconds:</strong>
+                    <ol>
+                        <li>In cPanel, open <strong>MySQL Databases</strong>.</li>
+                        <li>Under <strong>Current Users</strong>, find <code><?= htmlspecialchars($dbUser) ?></code> and click <strong>Change Password</strong> (set a password you know).</li>
+                        <li>Under <strong>Add User To Database</strong>, select user <code><?= htmlspecialchars($dbUser) ?></code> and database <code><?= htmlspecialchars($dbName) ?></code>, click <strong>Add</strong>, and tick <strong>ALL PRIVILEGES</strong>.</li>
+                        <li>Type that new password below and click Connect!</li>
+                    </ol>
+                </div>
             <?php endif; ?>
             <form method="POST">
                 <div class="field">
                     <label>Database User</label>
-                    <input type="text" value="spideclo_resellsaasdb_user" disabled>
+                    <input type="text" name="user" value="<?= htmlspecialchars($dbUser) ?>">
                 </div>
                 <div class="field">
                     <label>Database Name</label>
-                    <input type="text" value="spideclo_resellsaas_db" disabled>
+                    <input type="text" name="dbname" value="<?= htmlspecialchars($dbName) ?>">
                 </div>
                 <div class="field">
                     <label>cPanel MySQL Password</label>
-                    <input type="password" name="pass" placeholder="Enter password for spideclo_resellsaasdb_user" required autofocus>
+                    <input type="password" name="pass" placeholder="Enter password for <?= htmlspecialchars($dbUser) ?>" required autofocus>
                 </div>
                 <button type="submit">Connect & Activate Super Admin &rarr;</button>
             </form>
