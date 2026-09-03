@@ -17,9 +17,9 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Route /api Requests to backend/public/index.php
+    # Route /api Requests to backend/public/index.php using PHP 8.3 handler
     RewriteCond %{REQUEST_URI} ^/api/
-    RewriteRule ^api/(.*)$ backend/public/index.php [L,QSA]
+    RewriteRule ^api/(.*)$ backend/public/index.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
     # Route /install_api.php to backend/public/install_api.php
     RewriteCond %{REQUEST_URI} ^/install_api.php
