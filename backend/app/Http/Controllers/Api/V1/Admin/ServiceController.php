@@ -33,6 +33,10 @@ class ServiceController extends Controller
             $query->where('billing_type', $request->billing_type);
         }
 
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
         $services = $query->latest('created_at')->paginate($request->per_page ?? 25);
 
         return response()->json($services);

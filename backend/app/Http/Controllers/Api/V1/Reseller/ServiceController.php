@@ -29,7 +29,18 @@ class ServiceController extends Controller
             ->with(['category', 'plans', 'plans.prices']);
 
         if ($request->search) {
-            $query->where('name', 'like', "%{$request->search}%");
+            $query->where(fn($q) => $q
+                ->where('name', 'like', "%{$request->search}%")
+                ->orWhere('short_description', 'like', "%{$request->search}%")
+                ->orWhere('slug', 'like', "%{$request->search}%")
+            );
+        }
+
+        if ($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        } elseif ($request->filled('category') && $request->category !== 'all') {
+            $cat = $request->category;
+            $query->whereHas('category', fn($q) => $q->where('slug', $cat)->orWhere('id', $cat));
         }
 
         $services = $query->paginate($request->per_page ?? 25);

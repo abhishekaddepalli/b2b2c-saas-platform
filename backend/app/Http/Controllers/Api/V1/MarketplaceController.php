@@ -61,7 +61,12 @@ class MarketplaceController extends Controller
             );
         }
 
-        if ($request->category_id) $query->where('category_id', $request->category_id);
+        if ($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        } elseif ($request->filled('category') && $request->category !== 'all') {
+            $cat = $request->category;
+            $query->whereHas('category', fn($q) => $q->where('slug', $cat)->orWhere('id', $cat));
+        }
         if ($request->subcategory_id) $query->where('subcategory_id', $request->subcategory_id);
         if ($request->type) $query->where('type', $request->type);
         if ($request->boolean('featured')) $query->where('featured', true);
@@ -112,9 +117,18 @@ class MarketplaceController extends Controller
         $query = $this->visibleServicesQuery($user);
 
         if ($request->search) {
-            $query->where('name', 'like', "%{$request->search}%");
+            $query->where(fn($q) => $q
+                ->where('name', 'like', "%{$request->search}%")
+                ->orWhere('short_description', 'like', "%{$request->search}%")
+                ->orWhere('slug', 'like', "%{$request->search}%")
+            );
         }
-        if ($request->category_id) $query->where('category_id', $request->category_id);
+        if ($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        } elseif ($request->filled('category') && $request->category !== 'all') {
+            $cat = $request->category;
+            $query->whereHas('category', fn($q) => $q->where('slug', $cat)->orWhere('id', $cat));
+        }
         if ($request->billing_interval) $query->where('billing_interval', $request->billing_interval);
         if ($request->boolean('featured')) $query->where('featured', true);
 

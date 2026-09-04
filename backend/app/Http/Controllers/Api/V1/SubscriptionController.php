@@ -11,10 +11,24 @@ class SubscriptionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $subscriptions = Subscription::where('customer_id', $request->user()->id)
-            ->with(['servicePlan'])
-            ->latest('created_at')
-            ->paginate($request->per_page ?? 20);
+        $query = Subscription::where('customer_id', $request->user()->id)
+            ->with(['servicePlan']);
+
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $query->where(function ($q) use ($s) {
+                $q->where('id', 'like', "%{$s}%")
+                  ->orWhereHas('servicePlan', function ($pq) use ($s) {
+                      $pq->where('name', 'like', "%{$s}%");
+                  });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $subscriptions = $query->latest('created_at')->paginate($request->per_page ?? 20);
 
         return response()->json($subscriptions);
     }

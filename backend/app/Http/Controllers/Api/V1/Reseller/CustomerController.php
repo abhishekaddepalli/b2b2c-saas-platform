@@ -15,7 +15,26 @@ class CustomerController extends Controller
     public function index(Request $request): JsonResponse
     {
         $org = $request->user()->getOrganization();
-        $customers = $org ? $org->users()->wherePivot('role_within_org', 'customer')->paginate($request->per_page ?? 20) : [];
+        if (!$org) {
+            return response()->json(['data' => [], 'total' => 0]);
+        }
+
+        $query = $org->users()->wherePivot('role_within_org', 'customer');
+
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $query->where(function ($q) use ($s) {
+                $q->where('users.name', 'like', "%{$s}%")
+                  ->orWhere('users.email', 'like', "%{$s}%")
+                  ->orWhere('users.phone', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('users.status', $request->status);
+        }
+
+        $customers = $query->paginate($request->per_page ?? 20);
 
         return response()->json($customers);
     }

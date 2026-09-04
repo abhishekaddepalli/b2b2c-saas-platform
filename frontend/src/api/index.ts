@@ -86,6 +86,9 @@ export const marketplaceApi = {
   services: (params?: object) => api.get('/marketplace/services', { params }),
   service: (slug: string) => api.get(`/marketplace/services/${slug}`),
 
+  // Categories
+  categories: () => api.get('/marketplace/categories'),
+
   // Recommendations, Wishlist, and Reviews
   recommendations: () => api.get('/marketplace/recommendations'),
   wishlist: () => api.get('/marketplace/wishlist'),
@@ -173,6 +176,7 @@ export const adminApi = {
   // Categories
   categories: (params?: object) => api.get('/admin/categories', { params }),
   createCategory: (data: object) => api.post('/admin/categories', data),
+  syncInfiniforgeCatalog: () => api.post('/admin/catalog/sync-infiniforge'),
 
   // Organizations & Onboarding Approval
   organizations: (params?: object) => api.get('/admin/organizations', { params }),

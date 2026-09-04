@@ -19,8 +19,31 @@ class OrderController extends Controller
             return response()->json(['data' => [], 'meta' => ['total' => 0]]);
         }
 
-        $orders = Order::where('organization_id', $org?->id)
-            ->with(['customer', 'items'])
+        $query = Order::query();
+        if ($org) {
+            $query->where('organization_id', $org->id);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhere('id', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function ($cq) use ($search) {
+                      $cq->where('name', 'like', "%{$search}%")
+                         ->orWhere('email', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items', function ($iq) use ($search) {
+                      $iq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $orders = $query->with(['customer', 'items'])
             ->latest('placed_at')
             ->paginate($request->per_page ?? 20);
 

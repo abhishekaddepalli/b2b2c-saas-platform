@@ -76,6 +76,7 @@ export default function MarketplacePage() {
   const [tab, setTab] = useState<'all' | 'products' | 'services'>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Quick Order / Provision Modal State
   const [activeModalItem, setActiveModalItem] = useState<{ type: 'product' | 'service'; item: any } | null>(null);
@@ -85,15 +86,32 @@ export default function MarketplacePage() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [orderAlert, setOrderAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Categories Query
+  const { data: categoriesResponse } = useQuery({
+    queryKey: ['marketplace', 'categories'],
+    queryFn: () => marketplaceApi.categories().then(r => r.data?.data ?? []),
+  });
+  const categories: any[] = categoriesResponse ?? [];
+
   // Queries
   const { data: productsData, isLoading: loadingProducts } = useQuery({
-    queryKey: ['marketplace', 'products', search, sort],
-    queryFn: () => marketplaceApi.products({ search, sort, per_page: 20 }).then(r => r.data),
+    queryKey: ['marketplace', 'products', search, sort, selectedCategory],
+    queryFn: () => marketplaceApi.products({
+      search,
+      sort,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      per_page: 50
+    }).then(r => r.data),
   });
 
   const { data: servicesData, isLoading: loadingServices } = useQuery({
-    queryKey: ['marketplace', 'services', search, sort],
-    queryFn: () => marketplaceApi.services({ search, sort, per_page: 20 }).then(r => r.data),
+    queryKey: ['marketplace', 'services', search, sort, selectedCategory],
+    queryFn: () => marketplaceApi.services({
+      search,
+      sort,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      per_page: 50
+    }).then(r => r.data),
   });
 
   const { data: recData } = useQuery({
@@ -135,6 +153,22 @@ export default function MarketplacePage() {
   const products: Product[] = productsData?.data ?? [];
   const services: Service[] = servicesData?.data ?? [];
   const recProducts = recData?.recommended_products ?? [];
+
+  const getCategoryDisplayName = (item: any, fallback: string = 'Digital') => {
+    if (item?.category && typeof item.category === 'object' && item.category.name) {
+      return item.category.name;
+    }
+    if (item?.category_id) {
+      const match = categories.find((c: any) => c.id === item.category_id || c.slug === item.category_id);
+      if (match) return match.name;
+    }
+    if (typeof item?.category === 'string') {
+      const match = categories.find((c: any) => c.slug === item.category || c.id === item.category);
+      if (match) return match.name;
+      return item.category;
+    }
+    return fallback;
+  };
 
   const handleOpenOrderModal = (type: 'product' | 'service', item: any, defaultBeneficiary: 'customer' | 'self' = 'customer') => {
     setActiveModalItem({ type, item });
@@ -253,7 +287,7 @@ export default function MarketplacePage() {
               >
                 <div>
                   <div className="text-[11px] text-indigo-400 font-bold mb-1 uppercase tracking-wider">
-                    {typeof p.category === 'object' ? p.category?.name : (p.category || 'Featured')}
+                    {getCategoryDisplayName(p, 'Featured')}
                   </div>
                   <h3 className="font-bold text-white text-sm line-clamp-1 mb-1 group-hover:text-indigo-400 transition-colors">{p.name}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{p.short_description}</p>
@@ -265,18 +299,91 @@ export default function MarketplacePage() {
         </section>
       )}
 
+      {/* Category Pills Filter Bar */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Browse by Category</h2>
+          </div>
+          <span className="text-xs text-slate-400">
+            {categories.length} Categories Available
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
+              selectedCategory === 'all'
+                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-lg shadow-indigo-500/25 scale-[1.02]'
+                : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <span>All Catalog</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/40 text-slate-300 font-semibold">
+              {products.length + services.length}
+            </span>
+          </button>
+
+          {categories.map((cat: any) => {
+            const isSelected = selectedCategory === cat.slug || selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id || cat.slug}
+                type="button"
+                onClick={() => setSelectedCategory(isSelected ? 'all' : (cat.slug || cat.id))}
+                className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-lg shadow-indigo-500/25 scale-[1.02]'
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                }`}
+              >
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Search, Filter & Sort Bar */}
       <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center">
-        {/* Search */}
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search digital products, licenses & services..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-950 border border-slate-800 text-white placeholder-slate-500 rounded-xl focus:outline-none focus:border-indigo-500"
-          />
+        {/* Search & Category Quick Select */}
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto flex-1 max-w-2xl">
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search software, digital products, licenses & services..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 text-xs bg-slate-950 border border-slate-800 text-white placeholder-slate-500 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 rounded-full hover:bg-slate-800 transition-colors"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <select
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+            className="w-full sm:w-48 px-3 py-2.5 text-xs bg-slate-950 border border-slate-800 text-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 cursor-pointer shrink-0"
+          >
+            <option value="all">All Categories</option>
+            {categories.map((cat: any) => (
+              <option key={cat.id || cat.slug} value={cat.slug || cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Filters & Sorting */}
@@ -286,7 +393,7 @@ export default function MarketplacePage() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all capitalize cursor-pointer ${
                   tab === t ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -309,6 +416,47 @@ export default function MarketplacePage() {
           </div>
         </div>
       </div>
+
+      {/* Active Filter Tags */}
+      {(search || selectedCategory !== 'all') && (
+        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400 animate-in fade-in">
+          <span>Active filters:</span>
+          {selectedCategory !== 'all' && (
+            <span className="inline-flex items-center gap-1.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium">
+              Category: {categories.find((c: any) => c.slug === selectedCategory || c.id === selectedCategory)?.name || selectedCategory}
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className="hover:text-white ml-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {search && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-medium">
+              Query: "{search}"
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="hover:text-white ml-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setSelectedCategory('all');
+            }}
+            className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-semibold ml-1 cursor-pointer"
+          >
+            Reset all
+          </button>
+        </div>
+      )}
 
       {/* Main Listings */}
       {loadingProducts || loadingServices ? (
@@ -335,7 +483,7 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {products.map(p => {
                     const inWishlist = wishlistIds.has(p.id);
-                    const categoryName = typeof p.category === 'object' ? p.category?.name : (p.category || 'Digital');
+                    const categoryName = getCategoryDisplayName(p, 'Digital');
 
                     return (
                       <div
@@ -471,7 +619,7 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {services.map(s => {
                     const inWishlist = wishlistIds.has(s.id);
-                    const categoryName = typeof s.category === 'object' ? s.category?.name : (s.category || 'Recurring Service');
+                    const categoryName = getCategoryDisplayName(s, 'Recurring Service');
 
                     return (
                       <div
@@ -649,7 +797,7 @@ export default function MarketplacePage() {
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400">
-                  {typeof activeModalItem.item.category === 'object' ? activeModalItem.item.category?.name : (activeModalItem.item.category || 'Digital')}
+                  {getCategoryDisplayName(activeModalItem.item, activeModalItem.type === 'service' ? 'Recurring Service' : 'Digital')}
                 </span>
                 <h4 className="font-bold text-white text-sm mt-0.5">{activeModalItem.item.name}</h4>
               </div>

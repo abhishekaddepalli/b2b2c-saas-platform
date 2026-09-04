@@ -151,6 +151,7 @@ Route::prefix('v1')->group(function () {
 
             Route::apiResource('services', \App\Http\Controllers\Api\V1\Admin\ServiceController::class);
             Route::apiResource('categories', \App\Http\Controllers\Api\V1\Admin\CategoryController::class);
+            Route::post('catalog/sync-infiniforge', [\App\Http\Controllers\Api\V1\Admin\CategoryController::class, 'syncInfiniforge']);
             Route::apiResource('organizations', \App\Http\Controllers\Api\V1\Admin\OrganizationController::class);
             Route::post('organizations/{id}/status', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'updateStatus']);
             Route::post('organizations/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'approve']);

@@ -24,8 +24,12 @@ class OrderController extends Controller
             $s = '%' . trim($request->search) . '%';
             $query->where(function ($q) use ($s) {
                 $q->where('order_number', 'like', $s)
+                  ->orWhere('id', 'like', $s)
                   ->orWhereHas('customer', function ($cq) use ($s) {
                       $cq->where('name', 'like', $s)->orWhere('email', 'like', $s);
+                  })
+                  ->orWhereHas('items', function ($iq) use ($s) {
+                      $iq->where('name', 'like', $s);
                   });
             });
         }

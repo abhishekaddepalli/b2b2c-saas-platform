@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   CreditCard, Search, ShoppingBag, CheckCircle, ShieldAlert,
-  Loader2, IndianRupee, Layers, Clock, AlertCircle
+  Loader2, IndianRupee, Layers, Clock, AlertCircle, X
 } from 'lucide-react';
 import { subscriptionsApi } from '../../api';
 
@@ -16,10 +16,11 @@ const statusColors: Record<string, string> = {
 
 export default function CustomerSubscriptions() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['customer', 'subscriptions', search],
-    queryFn: () => subscriptionsApi.list({ search, per_page: 50 }).then(r => r.data),
+    queryKey: ['customer', 'subscriptions', search, statusFilter],
+    queryFn: () => subscriptionsApi.list({ search, status: statusFilter, per_page: 50 }).then(r => r.data),
   });
 
   const subscriptions: any[] = data?.data ?? [];
@@ -45,8 +46,93 @@ export default function CustomerSubscriptions() {
           <span>Explore More Services</span>
         </Link>
       </div>
+ 
+       {/* Filter Bar */}
+       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+         <div className="flex flex-col sm:flex-row items-center gap-3">
+           <div className="relative flex-1 w-full">
+             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+             <input
+               type="text"
+               placeholder="Search subscriptions by plan name or ID…"
+               value={search}
+               onChange={e => setSearch(e.target.value)}
+               className="w-full pl-9 pr-9 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 hover:bg-white focus:bg-white transition-colors"
+             />
+             {search && (
+               <button
+                 type="button"
+                 onClick={() => setSearch('')}
+                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+                 title="Clear search"
+               >
+                 <X className="w-3.5 h-3.5" />
+               </button>
+             )}
+           </div>
 
-      {/* Table */}
+           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-between sm:justify-end">
+             <select
+               value={statusFilter}
+               onChange={e => setStatusFilter(e.target.value)}
+               className="px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium text-slate-700 cursor-pointer"
+             >
+               <option value="">All Statuses</option>
+               <option value="active">Active</option>
+               <option value="trial">Trial</option>
+               <option value="suspended">Suspended</option>
+               <option value="cancelled">Cancelled</option>
+             </select>
+
+             <span className="text-xs text-slate-500 font-semibold px-2.5 py-1 bg-slate-100 rounded-lg shrink-0">
+               {subscriptions.length} {subscriptions.length === 1 ? 'Subscription' : 'Subscriptions'}
+             </span>
+           </div>
+         </div>
+
+         {/* Quick Filter Status Pills */}
+         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">Status:</span>
+           {[
+             { label: 'All', val: '' },
+             { label: 'Active', val: 'active' },
+             { label: 'Trial', val: 'trial' },
+             { label: 'Suspended', val: 'suspended' },
+             { label: 'Cancelled', val: 'cancelled' },
+           ].map(pill => {
+             const active = statusFilter === pill.val;
+             return (
+               <button
+                 key={pill.val}
+                 type="button"
+                 onClick={() => setStatusFilter(pill.val)}
+                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                   active
+                     ? 'bg-indigo-600 text-white shadow-xs'
+                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                 }`}
+               >
+                 {pill.label}
+               </button>
+             );
+           })}
+
+           {(search || statusFilter) && (
+             <button
+               type="button"
+               onClick={() => {
+                 setSearch('');
+                 setStatusFilter('');
+               }}
+               className="ml-auto text-xs font-semibold text-rose-600 hover:text-rose-700 inline-flex items-center gap-1 shrink-0 px-2 py-0.5"
+             >
+               <X className="w-3 h-3" /> Reset Filters
+             </button>
+           )}
+         </div>
+       </div>
+
+       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">

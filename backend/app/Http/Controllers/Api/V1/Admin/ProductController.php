@@ -31,6 +31,10 @@ class ProductController extends Controller
             $query->where('type', $request->type);
         }
 
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
         $products = $query->latest('created_at')->paginate($request->per_page ?? 25);
 
         return response()->json($products);
