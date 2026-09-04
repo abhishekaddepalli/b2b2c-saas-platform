@@ -325,10 +325,26 @@ if (isset($_GET['git_sync'])) {
     }
 
     $commit = @exec("cd {$projectRoot} && git rev-parse --short HEAD");
+    $stats = [];
+    try {
+        $stats = [
+            'users_count' => \App\Models\User::count(),
+            'subscriptions_count' => \App\Models\Subscription::withoutTenantScope()->count(),
+            'orders_count' => \App\Models\Order::withoutTenantScope()->count(),
+            'invoices_count' => \App\Models\Invoice::withoutTenantScope()->count(),
+            'profit_records_count' => \Illuminate\Support\Facades\DB::table('profit_records')->count(),
+            'jay_orders' => \App\Models\Order::withoutTenantScope()->whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->with('items')->get(),
+            'jay_spend' => (float) \App\Models\Order::withoutTenantScope()->whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->where('payment_status', 'paid')->sum('grand_total'),
+        ];
+    } catch (\Throwable $e) {
+        $stats['error'] = $e->getMessage();
+    }
+
     echo json_encode([
         'status' => $ret === 0 ? 'success' : 'completed_with_output',
         'current_commit' => $commit,
         'git_output' => $output,
+        'reconciliation_stats' => $stats,
     ], JSON_PRETTY_PRINT);
     exit;
 }
@@ -493,8 +509,7 @@ $superRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'SUPER_ADM
 $user->syncRoles([$superRole]);
 $masterOrg->users()->syncWithoutDetaching([$user->id => ['role_within_org' => 'owner', 'status' => 'active']]);
 
-// Purge all dummy demo accounts so only master admin remains
-\App\Models\User::where('email', '!=', $email)->forceDelete();
+// Demo accounts preserved to maintain database relationships and order histories
 
 if (!file_exists($basePath . '/storage/installed')) {
     file_put_contents($basePath . '/storage/installed', date('c'));
