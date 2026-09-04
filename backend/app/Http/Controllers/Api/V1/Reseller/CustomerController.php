@@ -113,6 +113,31 @@ class CustomerController extends Controller
         $org = $request->user()->getOrganization();
         $customer = $this->findOrgCustomer($org, $id);
 
+        $ordersCount = Order::where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->count();
+
+        $totalSpent = (float) Order::where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->whereIn('payment_status', ['paid', 'completed'])
+            ->sum('grand_total');
+
+        $subsCount = Subscription::withoutTenantScope()
+            ->where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->count();
+
+        $activeSubsCount = Subscription::withoutTenantScope()
+            ->where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->where('status', 'active')
+            ->count();
+
+        $customer->setAttribute('orders_count', $ordersCount);
+        $customer->setAttribute('total_spent', $totalSpent);
+        $customer->setAttribute('subscriptions_count', $subsCount);
+        $customer->setAttribute('active_subscriptions_count', $activeSubsCount);
+
         return response()->json(['data' => $customer]);
     }
 
@@ -140,7 +165,12 @@ class CustomerController extends Controller
         $org = $request->user()->getOrganization();
         $customer = $this->findOrgCustomer($org, $id);
 
-        $orders = Order::where('customer_id', $customer->id)->latest()->paginate($request->per_page ?? 20);
+        $orders = Order::where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->with(['items', 'customer'])
+            ->latest()
+            ->paginate($request->per_page ?? 20);
+
         return response()->json($orders);
     }
 
@@ -149,7 +179,13 @@ class CustomerController extends Controller
         $org = $request->user()->getOrganization();
         $customer = $this->findOrgCustomer($org, $id);
 
-        $subs = Subscription::where('customer_id', $customer->id)->latest()->paginate($request->per_page ?? 20);
+        $subs = Subscription::withoutTenantScope()
+            ->where('customer_id', $customer->id)
+            ->when($org, fn($q) => $q->where('organization_id', $org->id))
+            ->with(['servicePlan.service'])
+            ->latest()
+            ->paginate($request->per_page ?? 20);
+
         return response()->json($subs);
     }
 }
