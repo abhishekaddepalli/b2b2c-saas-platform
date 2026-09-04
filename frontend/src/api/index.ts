@@ -97,6 +97,13 @@ export const marketplaceApi = {
   storeReview: (id: string, data: object) => api.post(`/marketplace/items/${id}/reviews`, data),
 };
 
+// ─── Public Settings & CMS ───────────────────────────────────────────────────
+
+export const publicApi = {
+  settings: () => api.get('/public-settings'),
+  cms: () => api.get('/cms'),
+};
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const ordersApi = {

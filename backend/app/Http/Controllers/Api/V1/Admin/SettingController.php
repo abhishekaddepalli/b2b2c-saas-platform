@@ -181,6 +181,14 @@ class SettingController extends Controller
             'support_hours' => '24/7 Mon - Sun',
             'support_sla_hours' => '2 Hours',
             'support_ticketing_enabled' => true,
+
+            // tawk.to Live Chat Integration
+            'enable_tawkto' => true,
+            'tawkto_property_id' => '',
+            'tawkto_widget_id' => 'default',
+            'tawkto_direct_chat_link' => '',
+            'tawkto_chat_mode' => 'hybrid', // 'official', 'custom', 'hybrid'
+            'tawkto_sync_visitor_user' => true,
         ];
     }
 
@@ -219,5 +227,32 @@ class SettingController extends Controller
             'message' => 'Platform settings and payment gateway credentials saved successfully.',
             'data' => $merged,
         ]);
+    }
+
+    public function publicSettings(): JsonResponse
+    {
+        $defaults = $this->getDefaultSettings();
+        if (File::exists($this->settingsFile)) {
+            $saved = json_decode(File::get($this->settingsFile), true) ?: [];
+            $settings = array_merge($defaults, $saved);
+        } else {
+            $settings = $defaults;
+        }
+
+        // Return only safe, public-facing configuration
+        $publicKeys = [
+            'platform_name', 'brand_title', 'support_email', 'support_phone', 'currency',
+            'enable_chat_widget', 'chat_widget_title', 'chat_widget_subtitle', 'chat_widget_greeting',
+            'chat_widget_primary_color', 'chat_widget_position', 'chat_widget_whatsapp_number',
+            'chat_widget_agent_name', 'chat_widget_agent_avatar', 'support_hours', 'support_sla_hours',
+            'enable_tawkto', 'tawkto_property_id', 'tawkto_widget_id', 'tawkto_direct_chat_link',
+            'tawkto_chat_mode', 'tawkto_sync_visitor_user',
+            'enable_google_oauth', 'enable_github_oauth', 'enable_facebook_oauth', 'enable_microsoft_oauth',
+            'enable_captcha', 'captcha_provider', 'captcha_site_key',
+        ];
+
+        $filtered = array_intersect_key($settings, array_flip($publicKeys));
+
+        return response()->json(['data' => $filtered]);
     }
 }

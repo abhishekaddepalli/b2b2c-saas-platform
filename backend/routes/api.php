@@ -27,6 +27,9 @@ Route::prefix('v1')->group(function () {
     // Public CMS Data
     Route::get('cms', [\App\Http\Controllers\Api\V1\Admin\CmsController::class, 'getPublicCms']);
 
+    // Public Platform & Live Chat Settings
+    Route::get('public-settings', [\App\Http\Controllers\Api\V1\Admin\SettingController::class, 'publicSettings']);
+
     // ─── Public marketplace (pricing resolved per role in controller) ─────────
     Route::prefix('marketplace')->group(function () {
         Route::get('/', [MarketplaceController::class, 'home']);
