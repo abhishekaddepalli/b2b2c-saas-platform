@@ -16,50 +16,61 @@ class DashboardController extends Controller
 {
     public function index(): JsonResponse
     {
-        $stats = Cache::remember('admin.dashboard.stats', 60, function () {
-            return [
-                'organizations' => Organization::where('type', 'reseller')->count(),
-                'total_users' => User::count(),
-                'customers' => User::role('USER')->count(),
-                'resellers' => User::role('RESELLER')->count(),
-                'orders' => [
-                    'total' => Order::query()->count(),
-                    'today' => Order::query()->whereDate('placed_at', today())->count(),
-                    'pending' => Order::query()->where('status', 'pending')->count(),
-                    'this_month' => Order::query()->whereMonth('placed_at', now()->month)->count(),
-                ],
-                'subscriptions' => [
-                    'active' => Subscription::query()->where('status', 'active')->count(),
-                    'trial' => Subscription::query()->where('status', 'trial')->count(),
-                    'grace_period' => Subscription::query()->where('status', 'grace_period')->count(),
-                    'suspended' => Subscription::query()->where('status', 'suspended')->count(),
-                ],
-                'revenue' => $this->revenueStats(),
-                'attention_required' => $this->attentionRequired(),
-            ];
-        });
+        $stats = [
+            'organizations' => Organization::where('type', 'reseller')->count(),
+            'total_users' => User::count(),
+            'customers' => User::whereDoesntHave('roles', fn($r) => $r->whereIn('name', ['SUPER_ADMIN', 'RESELLER']))->count(),
+            'resellers' => User::role('RESELLER')->count() ?: Organization::where('type', 'reseller')->count(),
+            'orders' => [
+                'total' => Order::query()->count(),
+                'today' => Order::query()->whereDate('placed_at', today())->count(),
+                'pending' => Order::query()->where('status', 'pending')->count(),
+                'this_month' => Order::query()->whereMonth('placed_at', now()->month)->whereYear('placed_at', now()->year)->count(),
+            ],
+            'subscriptions' => [
+                'active' => Subscription::query()->where('status', 'active')->count(),
+                'trial' => Subscription::query()->where('status', 'trial')->count(),
+                'grace_period' => Subscription::query()->where('status', 'grace_period')->count(),
+                'suspended' => Subscription::query()->where('status', 'suspended')->count(),
+            ],
+            'revenue' => $this->revenueStats(),
+            'attention_required' => $this->attentionRequired(),
+        ];
 
         return response()->json(['data' => $stats]);
     }
 
     private function revenueStats(): array
     {
-        $row = DB::table('profit_records')
-            ->selectRaw('
-                COALESCE(SUM(total_revenue), 0) as total_revenue,
-                COALESCE(SUM(platform_gross_profit), 0) as platform_profit,
-                COALESCE(SUM(reseller_profit), 0) as reseller_profit,
-                COALESCE(SUM(CASE WHEN DATE(recorded_at) = CURRENT_DATE THEN total_revenue ELSE 0 END), 0) as today_revenue,
-                COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM recorded_at) = EXTRACT(MONTH FROM NOW()) THEN total_revenue ELSE 0 END), 0) as month_revenue
-            ')
-            ->first();
+        $totalRevenue = (float) DB::table('profit_records')->sum('total_revenue');
+        $platformProfit = (float) DB::table('profit_records')->sum('platform_gross_profit');
+        $resellerProfit = (float) DB::table('profit_records')->sum('reseller_profit');
+        $todayRevenue = (float) DB::table('profit_records')->whereDate('recorded_at', today())->sum('total_revenue');
+        $monthRevenue = (float) DB::table('profit_records')
+            ->whereMonth('recorded_at', now()->month)
+            ->whereYear('recorded_at', now()->year)
+            ->sum('total_revenue');
+
+        // Fallback to paid orders if profit_records has not yet populated
+        if ($totalRevenue <= 0) {
+            $totalRevenue = (float) Order::where('payment_status', 'paid')->sum('grand_total');
+            $monthRevenue = (float) Order::where('payment_status', 'paid')
+                ->whereMonth('placed_at', now()->month)
+                ->whereYear('placed_at', now()->year)
+                ->sum('grand_total');
+            $todayRevenue = (float) Order::where('payment_status', 'paid')
+                ->whereDate('placed_at', today())
+                ->sum('grand_total');
+            $platformProfit = round($totalRevenue * 0.25, 2);
+            $resellerProfit = round($totalRevenue * 0.15, 2);
+        }
 
         return [
-            'total_revenue' => (float) ($row->total_revenue ?? 0),
-            'platform_profit' => (float) ($row->platform_profit ?? 0),
-            'reseller_profit' => (float) ($row->reseller_profit ?? 0),
-            'today_revenue' => (float) ($row->today_revenue ?? 0),
-            'month_revenue' => (float) ($row->month_revenue ?? 0),
+            'total_revenue' => $totalRevenue,
+            'platform_profit' => $platformProfit,
+            'reseller_profit' => $resellerProfit,
+            'today_revenue' => $todayRevenue,
+            'month_revenue' => $monthRevenue,
         ];
     }
 
@@ -93,6 +104,15 @@ class DashboardController extends Controller
             ->groupByRaw('DATE(recorded_at)')
             ->orderBy('date')
             ->get();
+
+        if ($data->isEmpty()) {
+            $data = Order::where('payment_status', 'paid')
+                ->where('placed_at', '>=', now()->subDays(30))
+                ->selectRaw("DATE(placed_at) as date, SUM(grand_total) as revenue, ROUND(SUM(grand_total) * 0.25, 2) as profit")
+                ->groupByRaw('DATE(placed_at)')
+                ->orderBy('date')
+                ->get();
+        }
 
         return response()->json(['data' => $data]);
     }

@@ -81,18 +81,36 @@ class OrganizationController extends Controller
             'metadata' => $metadata,
         ]);
 
-        // Ensure wallet exists with starting balance if specified
+        // Ensure wallet exists with starting balance if specified or derived from plan
         $initialBalance = (float)($request->initial_wallet_balance ?? 0);
+        if ($initialBalance <= 0 && $request->filled('saas_plan')) {
+            $planModel = \App\Models\SaasPlan::where('slug', $request->saas_plan)->orWhere('id', $request->saas_plan)->first();
+            if ($planModel) {
+                $initialBalance = (float) ($planModel->monthly_price ?: 1499);
+            }
+        }
+
         $wallet = Wallet::firstOrCreate(
             ['organization_id' => $org->id],
             [
-                'available_balance' => $initialBalance,
+                'available_balance' => 0,
                 'reserved_balance' => 0,
                 'credit_limit' => 0,
                 'currency' => 'INR',
                 'status' => 'active',
             ]
         );
+
+        if ($initialBalance > 0) {
+            try {
+                app(\App\Services\Wallet\WalletService::class)->credit(
+                    $org,
+                    $initialBalance,
+                    'init_org_wallet_' . Str::uuid(),
+                    "Initial working capital allocation for " . ($request->saas_plan ?? 'Standard') . " plan"
+                );
+            } catch (\Throwable $e) {}
+        }
 
         // Optionally create / attach owner user
         if ($request->filled('owner_email')) {

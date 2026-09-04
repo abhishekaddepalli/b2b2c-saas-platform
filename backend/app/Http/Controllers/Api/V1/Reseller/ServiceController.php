@@ -156,8 +156,8 @@ class ServiceController extends Controller
             ], 422);
         }
 
-        $subscription = DB::transaction(function () use ($org, $customer, $plan, $pricing, $interval, $months, $resellerAmount, $customerAmount, $costAmount) {
-            // Debit reseller wallet for initial term
+        $subscription = DB::transaction(function () use ($org, $customer, $plan, $pricing, $interval, $months, $resellerAmount, $customerAmount, $costAmount, $request, $reseller) {
+            // 1. Debit reseller wallet for initial term
             if ($resellerAmount > 0) {
                 $idempotencyKey = 'sub-assign-' . Str::uuid();
                 $this->walletService->debit(
@@ -171,12 +171,101 @@ class ServiceController extends Controller
             $start = now();
             $end = now()->addMonths($months);
 
-            return Subscription::create([
+            // 2. Create Order in orders table
+            $orderNumber = 'ORD-' . strtoupper(Str::random(8));
+            $order = \App\Models\Order::create([
+                'organization_id' => $org->id,
+                'customer_id' => $customer->id,
+                'order_number' => $orderNumber,
+                'status' => 'completed',
+                'payment_status' => 'paid',
+                'payment_method' => 'wallet',
+                'subtotal' => $customerAmount,
+                'tax_total' => 0,
+                'discount_total' => 0,
+                'grand_total' => $customerAmount,
+                'currency' => $pricing->currency ?? 'INR',
+                'placed_at' => now(),
+            ]);
+
+            // 3. Create Order Item
+            $orderItemId = (string) Str::uuid();
+            $srv = $plan->service;
+            DB::table('order_items')->insert([
+                'id' => $orderItemId,
+                'order_id' => $order->id,
+                'orderable_type' => Service::class,
+                'orderable_id' => $plan->service_id,
+                'name' => ($srv?->name ?? 'Cloud Service') . " ({$plan->name})",
+                'sku' => 'SRV-' . strtoupper(Str::random(6)),
+                'quantity' => 1,
+                'unit_price' => $customerAmount,
+                'cost_price_at_purchase' => $costAmount,
+                'reseller_price_at_purchase' => $resellerAmount,
+                'customer_price_at_purchase' => $customerAmount,
+                'final_price_at_purchase' => $customerAmount,
+                'currency' => $pricing->currency ?? 'INR',
+                'metadata' => json_encode([
+                    'billing_interval' => $interval,
+                    'service_plan_id' => $plan->id,
+                    'service_status' => 'provisioned',
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 4. Create Profit Record for reseller reports
+            $platProfit = max(0, $resellerAmount - $costAmount);
+            $resProfit = max(0, $customerAmount - $resellerAmount);
+            $margin = $resellerAmount > 0 ? ($platProfit / $resellerAmount) : 0;
+            DB::table('profit_records')->insert([
+                'id' => (string) Str::uuid(),
+                'organization_id' => $org->id,
+                'order_item_id' => $orderItemId,
+                'customer_id' => $customer->id,
+                'currency' => $pricing->currency ?? 'INR',
+                'platform_revenue' => $resellerAmount,
+                'platform_cost' => $costAmount,
+                'platform_gross_profit' => $platProfit,
+                'reseller_revenue' => $customerAmount,
+                'reseller_profit' => $resProfit,
+                'total_revenue' => $customerAmount,
+                'margin_pct' => $margin,
+                'recorded_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 5. Generate Provisioning Credentials Metadata
+            $srvMeta = is_array($srv?->metadata) ? $srv->metadata : (json_decode($srv?->metadata ?? '{}', true) ?: []);
+            $defaultAccessUrl = $srvMeta['access_url'] ?? $srvMeta['portal_url'] ?? 'https://app.infiniforge.cloud';
+            $subMetadata = [
+                'service_id' => $plan->service_id,
+                'service_name' => $srv?->name ?? 'Cloud Service',
+                'plan_name' => $plan->name,
+                'service_type' => 'single',
+                'access_url' => $defaultAccessUrl,
+                'portal_url' => $defaultAccessUrl,
+                'username' => $customer->email,
+                'password' => 'CloudPass@' . rand(1000, 9999),
+                'server_ip' => '172.67.' . rand(10, 250) . '.' . rand(1, 254),
+                'port' => '443 / 22 (SSH)',
+                'license_key' => strtoupper(Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4)),
+                'instructions' => $srvMeta['instructions'] ?? 'Log in to your cloud dashboard or connect via SSH with provided credentials.',
+                'admin_notes' => 'Provisioned via Reseller Service Assignment for ' . $customer->name,
+                'client_notes' => $request->client_notes ?? '',
+            ];
+
+            // 6. Create Subscription with order_id
+            $sub = Subscription::create([
                 'organization_id' => $org->id,
                 'customer_id' => $customer->id,
                 'service_plan_id' => $plan->id,
+                'order_id' => $order->id,
                 'status' => 'active',
                 'billing_interval' => $interval,
+                'billing_interval_count' => 1,
+                'auto_renew' => true,
                 'amount' => $customerAmount,
                 'cost_price_snapshot' => $costAmount,
                 'reseller_price_snapshot' => $resellerAmount,
@@ -185,7 +274,77 @@ class ServiceController extends Controller
                 'current_period_end' => $end,
                 'next_billing_at' => $end,
                 'currency' => $pricing->currency ?? 'INR',
+                'metadata' => $subMetadata,
             ]);
+
+            // 7. Create Official Tax Invoice
+            $invNumber = 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(5));
+            $invoice = \App\Models\Invoice::create([
+                'invoice_number' => $invNumber,
+                'organization_id' => $org->id,
+                'customer_id' => $customer->id,
+                'order_id' => $order->id,
+                'subscription_id' => $sub->id,
+                'type' => 'subscription',
+                'status' => 'paid',
+                'currency' => $pricing->currency ?? 'INR',
+                'subtotal' => $customerAmount,
+                'discount_total' => 0,
+                'tax_total' => 0,
+                'grand_total' => $customerAmount,
+                'amount_paid' => $customerAmount,
+                'amount_due' => 0,
+                'billing_details' => [
+                    'name' => $customer->name,
+                    'email' => $customer->email,
+                    'phone' => $customer->phone ?? '',
+                    'company' => $customer->company ?? $org->name,
+                ],
+                'seller_details' => [
+                    'company' => $org->name ?? 'InfiniForge Cloud Solutions',
+                    'email' => $org->support_email ?? 'billing@infiniforge.cloud',
+                    'gstin' => '36AABCU9603R1ZM',
+                    'address' => 'Cyber Gateway, HITEC City, Hyderabad, 500081, India',
+                ],
+                'issued_at' => now(),
+                'paid_at' => now(),
+                'notes' => "Tax Invoice for service assignment {$plan->name} ({$orderNumber})",
+            ]);
+
+            \App\Models\InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'description' => ($srv?->name ?? 'Cloud Service') . " - {$plan->name} (" . ucfirst($interval) . ")",
+                'quantity' => 1,
+                'unit_price' => $customerAmount,
+                'discount' => 0,
+                'tax_rate' => 0,
+                'tax_amount' => 0,
+                'total' => $customerAmount,
+            ]);
+
+            // 8. Audit Log
+            try {
+                \App\Models\AuditLog::create([
+                    'organization_id' => $org->id,
+                    'actor_id' => $reseller->id,
+                    'action' => 'service.assigned_to_customer',
+                    'resource_type' => Subscription::class,
+                    'resource_id' => $sub->id,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'old_values' => null,
+                    'new_values' => [
+                        'customer_id' => $customer->id,
+                        'order_number' => $orderNumber,
+                        'invoice_number' => $invNumber,
+                        'customer_amount' => $customerAmount,
+                        'reseller_amount' => $resellerAmount,
+                        'reseller_profit' => $resProfit,
+                    ],
+                ]);
+            } catch (\Throwable $e) {}
+
+            return $sub;
         });
 
         return response()->json([

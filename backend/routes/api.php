@@ -127,6 +127,11 @@ Route::prefix('v1')->group(function () {
             Route::post('services/assign', [\App\Http\Controllers\Api\V1\Reseller\ServiceController::class, 'assign']);
 
             Route::get('subscriptions', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'index']);
+            Route::get('subscriptions/{id}', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'show']);
+            Route::post('subscriptions/{id}/suspend', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'suspend']);
+            Route::post('subscriptions/{id}/reactivate', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'reactivate']);
+            Route::post('subscriptions/{id}/cancel', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'cancel']);
+            Route::post('subscriptions/{id}/access', [\App\Http\Controllers\Api\V1\Reseller\SubscriptionController::class, 'updateAccess']);
             Route::get('profit', [\App\Http\Controllers\Api\V1\Reseller\ProfitController::class, 'index']);
             Route::get('profit/chart', [\App\Http\Controllers\Api\V1\Reseller\ProfitController::class, 'chart']);
             // Onboarding & KYC

@@ -150,6 +150,11 @@ export const resellerApi = {
   services: (params?: object) => api.get('/reseller/services', { params }),
   assignService: (data: object) => api.post('/reseller/services/assign', data),
   subscriptions: (params?: object) => api.get('/reseller/subscriptions', { params }),
+  subscription: (id: string) => api.get(`/reseller/subscriptions/${id}`),
+  suspendSubscription: (id: string) => api.post(`/reseller/subscriptions/${id}/suspend`),
+  reactivateSubscription: (id: string) => api.post(`/reseller/subscriptions/${id}/reactivate`),
+  cancelSubscription: (id: string) => api.post(`/reseller/subscriptions/${id}/cancel`),
+  updateSubscriptionAccess: (id: string, data: object) => api.post(`/reseller/subscriptions/${id}/access`, data),
 
   // Onboarding & KYC
   onboarding: () => api.get('/reseller/onboarding'),

@@ -62,10 +62,45 @@ class SaasMonetizationService
                 'currency' => $plan->currency,
             ]);
 
-            $org->update([
-                'white_label_enabled' => $plan->white_label_available,
-                'custom_domain_enabled' => $plan->white_label_available,
-            ]);
+            // Auto-credit reseller wallet with the plan amount + promotional offer bonus
+            try {
+                $walletService = app(\App\Services\Wallet\WalletService::class);
+                $offer = \App\Models\Offer::where('status', 'active')
+                    ->where(fn($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+                    ->where(fn($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+                    ->whereIn('audience', ['all', 'reseller'])
+                    ->orderByDesc('priority')
+                    ->first();
+
+                $baseCredit = $pricePaid > 0 ? (float) $pricePaid : (float) ($plan->monthly_price ?: 1499);
+                $bonusAmount = 0;
+                $offerNote = '';
+
+                if ($offer) {
+                    if ($offer->type === 'percentage') {
+                        $bonusAmount = round($baseCredit * ((float) $offer->discount_value / 100), 2);
+                        if ($offer->max_discount_amount && $bonusAmount > (float) $offer->max_discount_amount) {
+                            $bonusAmount = (float) $offer->max_discount_amount;
+                        }
+                        $offerNote = " (Includes {$offer->discount_value}% promotional bonus: {$offer->name})";
+                    } elseif ($offer->type === 'fixed') {
+                        $bonusAmount = (float) $offer->discount_value;
+                        $offerNote = " (Includes ₹{$bonusAmount} bonus credit: {$offer->name})";
+                    }
+                }
+
+                $totalCredit = $baseCredit + $bonusAmount;
+                if ($totalCredit > 0) {
+                    $walletService->credit(
+                        $org,
+                        $totalCredit,
+                        'saas-plan-wallet-' . $org->id . '-' . $plan->id . '-' . time(),
+                        "SaaS Plan working capital allocation for {$plan->name}{$offerNote}"
+                    );
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Plan wallet crediting notice: ' . $e->getMessage());
+            }
 
             return $sub->load('plan');
         });

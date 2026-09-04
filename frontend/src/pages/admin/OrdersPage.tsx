@@ -5,13 +5,14 @@ import {
   Loader2, IndianRupee, X, Eye, RefreshCw,
   ShoppingBag, Calendar, Clock, CreditCard,
   Key, Edit3, Truck, Download, ShieldCheck, Globe, Sparkles,
-  Plus, Trash2, Building2, Server, CheckSquare, Square, User
+  Plus, Trash2, Building2, Server, CheckSquare, Square, User, FileText
 } from 'lucide-react';
 import { adminApi } from '../../api';
 import type { Order } from '../../types';
 import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
 import ManualOrderModal from '../../components/admin/ManualOrderModal';
 import AssignOrderModal from '../../components/admin/AssignOrderModal';
+import TaxInvoiceModal from '../../components/common/TaxInvoiceModal';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -27,6 +28,7 @@ export default function AdminOrders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [assigningOrder, setAssigningOrder] = useState<any | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -463,6 +465,15 @@ export default function AdminOrders() {
                         >
                           <Eye className="w-3.5 h-3.5" /> Details
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setInvoiceOrder(o)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2 py-1.5 rounded-lg text-xs transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          title="View & Print Tax Invoice"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Invoice</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -627,13 +638,23 @@ export default function AdminOrders() {
                   </button>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInvoiceOrder(selectedOrder)}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3.5 py-2 rounded-xl text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Tax Invoice</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -897,6 +918,13 @@ export default function AdminOrders() {
           </div>
         </div>
       )}
+
+      {/* Printable Tax Invoice Modal */}
+      <TaxInvoiceModal
+        invoice={invoiceOrder}
+        isOpen={!!invoiceOrder}
+        onClose={() => setInvoiceOrder(null)}
+      />
     </div>
   );
 }

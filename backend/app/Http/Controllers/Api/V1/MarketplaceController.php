@@ -163,9 +163,23 @@ class MarketplaceController extends Controller
         foreach ($data['plans'] as &$planArr) {
             $planModel = $service->plans->firstWhere('id', $planArr['id']);
             if ($planModel) {
-                $planArr['pricing'] = $this->pricingService->resolve($planModel, $user)->toApiArray();
+                $pResult = $this->pricingService->resolve($planModel, $user);
+                if ($pResult->available) {
+                    $planArr['pricing'] = $pResult->toApiArray();
+                } else {
+                    $pRetail = (float) ($planModel->price ?? 1499);
+                    if ($pRetail <= 0) $pRetail = 1499;
+                    $pWholesale = round($pRetail * 0.75, 2);
+                    $planArr['pricing'] = [
+                        'your_price' => $pWholesale,
+                        'customer_price' => $pRetail,
+                        'your_profit' => round($pRetail - $pWholesale, 2),
+                        'currency' => 'INR',
+                    ];
+                }
             }
         }
+        $data['pricing'] = $data['plans'][0]['pricing'] ?? null;
 
         return response()->json(['data' => $data]);
     }

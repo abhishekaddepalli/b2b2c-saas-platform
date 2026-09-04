@@ -4,11 +4,12 @@ import { Link } from 'react-router-dom';
 import {
   Package, Search, ShoppingBag, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, Eye, ExternalLink, X, Calendar, Clock,
-  User, Tag, ArrowUpRight, Plus
+  User, Tag, ArrowUpRight, Plus, FileText
 } from 'lucide-react';
 import { resellerApi } from '../../api';
 import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
 import ResellerManualOrderModal from '../../components/reseller/ResellerManualOrderModal';
+import TaxInvoiceModal from '../../components/common/TaxInvoiceModal';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -23,6 +24,7 @@ export default function ResellerOrders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
   const [showManualOrderModal, setShowManualOrderModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -296,14 +298,24 @@ export default function ResellerOrders() {
                       </td>
 
                       <td className="px-4 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrder(o)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrder(o)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceOrder(o)}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors cursor-pointer"
+                            title="View & Print Tax Invoice"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -328,7 +340,7 @@ export default function ResellerOrders() {
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -377,11 +389,20 @@ export default function ResellerOrders() {
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-end">
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setInvoiceOrder(selectedOrder)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl transition-colors cursor-pointer text-xs"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Tax Invoice</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs text-xs cursor-pointer"
               >
                 Close Summary
               </button>
@@ -399,6 +420,13 @@ export default function ResellerOrders() {
           setSuccessMsg('Client order created and fulfilled successfully!');
           setTimeout(() => setSuccessMsg(''), 5000);
         }}
+      />
+
+      {/* Printable Tax Invoice Modal */}
+      <TaxInvoiceModal
+        invoice={invoiceOrder}
+        isOpen={!!invoiceOrder}
+        onClose={() => setInvoiceOrder(null)}
       />
     </div>
   );

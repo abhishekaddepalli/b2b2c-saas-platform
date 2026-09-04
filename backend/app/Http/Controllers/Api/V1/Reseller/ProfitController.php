@@ -14,8 +14,18 @@ class ProfitController extends Controller
         $orgId = $request->user()->getOrganization()?->id;
 
         $profits = DB::table('profit_records')
-            ->where('organization_id', $orgId)
-            ->paginate($request->per_page ?? 20);
+            ->leftJoin('order_items', 'profit_records.order_item_id', '=', 'order_items.id')
+            ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('users', 'profit_records.customer_id', '=', 'users.id')
+            ->where('profit_records.organization_id', $orgId)
+            ->select(
+                'profit_records.*',
+                'orders.order_number',
+                'users.name as customer_name',
+                'order_items.name as item_name'
+            )
+            ->latest('profit_records.recorded_at')
+            ->paginate($request->per_page ?? 50);
 
         return response()->json($profits);
     }

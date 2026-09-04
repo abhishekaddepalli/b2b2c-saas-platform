@@ -43,7 +43,9 @@ export default function ResellerCustomerDetail() {
   const orders: any[] = Array.isArray(ordersData) ? ordersData : (ordersData?.data ?? []);
   const subscriptions: any[] = Array.isArray(subsData) ? subsData : (subsData?.data ?? []);
 
-  const totalSpent = orders.reduce((sum: number, o: any) => sum + Number(o.total_amount ?? o.grand_total ?? 0), 0);
+  const ordersTotal = orders.reduce((sum: number, o: any) => sum + Number(o.total_amount ?? o.grand_total ?? 0), 0);
+  const subsTotal = subscriptions.reduce((sum: number, s: any) => sum + Number(s.amount ?? 0), 0);
+  const totalSpent = ordersTotal > 0 ? ordersTotal : subsTotal;
 
   return (
     <div className="space-y-6">
@@ -84,7 +86,7 @@ export default function ResellerCustomerDetail() {
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           <Link
-            to="/reseller"
+            to="/reseller/marketplace"
             className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all"
           >
             <Plus className="w-4 h-4" />

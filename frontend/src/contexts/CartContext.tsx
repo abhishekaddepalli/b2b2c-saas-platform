@@ -16,6 +16,7 @@ export interface CartItem {
   resellerPrice?: number;
   customerRetailPrice?: number;
   clientNotes?: string;
+  servicePlanId?: string;
 }
 
 interface CartContextType {

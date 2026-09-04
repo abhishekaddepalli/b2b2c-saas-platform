@@ -21,6 +21,7 @@ export default function ServiceDetailPage() {
   const { addItem, openCart } = useCart();
 
   const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [ordering, setOrdering] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
@@ -63,10 +64,32 @@ export default function ServiceDetailPage() {
   }, [service?.metadata]);
 
   // Pricing calculations
-  const baseMonthlyPrice = Number(service?.plans?.[0]?.price ?? service?.price ?? 2499);
-  const retailPrice = selectedInterval === 'yearly' ? Math.round(baseMonthlyPrice * 10) : baseMonthlyPrice;
+  const plans: any[] = service?.plans ?? [];
+  const activePlan = plans[selectedPlanIndex] || plans[0] || null;
+  const activePricing = activePlan?.pricing || service?.pricing || null;
+
+  const monthlyWholesale = Number(
+    activePricing?.your_price ??
+    activePricing?.reseller_price ??
+    activePlan?.prices?.[0]?.reseller_price ??
+    (activePricing?.customer_price ? activePricing.customer_price * 0.75 : null) ??
+    (activePlan?.price ? activePlan.price * 0.75 : null) ??
+    (service?.price ? service.price * 0.75 : 450)
+  );
+
+  const monthlyRetail = Number(
+    activePricing?.customer_price ??
+    activePricing?.price ??
+    activePlan?.prices?.[0]?.customer_price ??
+    activePlan?.price ??
+    service?.price ??
+    (monthlyWholesale > 0 ? Math.round(monthlyWholesale / 0.75) : 599)
+  );
+
+  const isYearly = selectedInterval === 'yearly';
+  const wholesalePrice = isYearly ? Math.round(monthlyWholesale * 10) : Math.round(monthlyWholesale);
+  const retailPrice = isYearly ? Math.round(monthlyRetail * 10) : Math.round(monthlyRetail);
   const originalPrice = Math.round(retailPrice * 1.3);
-  const wholesalePrice = isReseller() ? Math.round(retailPrice * 0.75) : retailPrice;
   const unitProfit = Math.max(0, retailPrice - wholesalePrice);
 
   const categoryName = typeof service?.category === 'object'
@@ -80,7 +103,7 @@ export default function ServiceDetailPage() {
     addItem({
       itemId: service.id,
       slug: service.slug,
-      name: service.name,
+      name: `${service.name}${activePlan ? ` (${activePlan.name})` : ''}`,
       type: 'service',
       price: isReseller() ? wholesalePrice : retailPrice,
       originalPrice,
@@ -91,6 +114,7 @@ export default function ServiceDetailPage() {
       resellerPrice: wholesalePrice,
       customerRetailPrice: retailPrice,
       clientNotes: clientBrief,
+      servicePlanId: activePlan?.id,
     });
     setAddedToCartToast(true);
     setTimeout(() => setAddedToCartToast(false), 3000);
@@ -104,7 +128,15 @@ export default function ServiceDetailPage() {
     try {
       setOrdering(true);
       const payload: any = {
-        items: [{ service_id: service.id, interval: selectedInterval, quantity: 1, client_notes: clientBrief }],
+        items: [{
+          service_id: service.id,
+          service_plan_id: activePlan?.id,
+          interval: selectedInterval,
+          quantity: 1,
+          client_notes: clientBrief,
+          customer_price: retailPrice,
+          unit_price: isReseller() ? wholesalePrice : retailPrice,
+        }],
         payment_method: 'wallet',
       };
       if (isReseller() && selectedCustomerId) {
@@ -270,11 +302,51 @@ export default function ServiceDetailPage() {
         {/* Right Column: Pricing & Subscription Card (5 cols) */}
         <div className="lg:col-span-5 space-y-5">
           <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/95 border border-indigo-500/30 shadow-2xl space-y-5 sticky top-24">
+            {/* Plan Tier Selector */}
+            {plans.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">
+                    Plan Tier
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">{plans.length} available</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {plans.map((p: any, idx: number) => {
+                    const isSelected = selectedPlanIndex === idx;
+                    const pWholesale = Number(p.pricing?.your_price ?? p.pricing?.reseller_price ?? (p.price ? p.price * 0.75 : 450));
+                    const pRetail = Number(p.pricing?.customer_price ?? p.pricing?.price ?? p.price ?? 599);
+                    const displayAmt = isReseller() ? pWholesale : pRetail;
+                    return (
+                      <button
+                        key={p.id || idx}
+                        type="button"
+                        onClick={() => setSelectedPlanIndex(idx)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg ring-1 ring-indigo-500'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-white truncate">{p.name}</span>
+                          {isSelected && <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>}
+                        </div>
+                        <div className="text-[11px] font-black text-indigo-300 mt-1">
+                          ₹{(selectedInterval === 'yearly' ? displayAmt * 10 : displayAmt).toLocaleString('en-IN')}{selectedInterval === 'yearly' ? '/yr' : '/mo'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Billing Interval Toggle */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">
-                  Subscription Plan
+                  Billing Cycle
                 </span>
                 <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                   Cancel Anytime
@@ -591,7 +663,15 @@ export default function ServiceDetailPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {relatedServices.map((rel: any) => {
-              const relPrice = Number(rel.plans?.[0]?.price ?? rel.price ?? 1999);
+              const relPrice = Number(
+                (isReseller() ? rel.pricing?.your_price : rel.pricing?.customer_price) ??
+                rel.pricing?.price ??
+                rel.plans?.[0]?.pricing?.customer_price ??
+                rel.plans?.[0]?.price ??
+                rel.price ??
+                599
+              );
+              const relLink = isResellerPath ? `/reseller/services/${rel.slug}` : isCustomerPath ? `/app/services/${rel.slug}` : `/services/${rel.slug}`;
               return (
                 <div
                   key={rel.id}
@@ -614,7 +694,7 @@ export default function ServiceDetailPage() {
                       ₹{relPrice.toLocaleString('en-IN')}/mo
                     </span>
                     <Link
-                      to={`/services/${rel.slug}`}
+                      to={relLink}
                       className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                     >
                       <span>View</span>

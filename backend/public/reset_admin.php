@@ -168,6 +168,158 @@ if (isset($_GET['git_sync'])) {
                 }
             }
         }
+
+        // 5. Auto-generate missing Order, OrderItem, Invoice, and ProfitRecord for any Subscription lacking an order
+        $subsMissingOrders = \App\Models\Subscription::withoutTenantScope()
+            ->whereNull('order_id')
+            ->with(['customer', 'servicePlan.service', 'organization'])
+            ->get();
+        foreach ($subsMissingOrders as $orphanedSub) {
+            $cust = $orphanedSub->customer;
+            $org = $orphanedSub->organization;
+            $plan = $orphanedSub->servicePlan;
+            $custAmt = (float) ($orphanedSub->amount ?: ($orphanedSub->customer_price_snapshot ?: 599));
+            $resAmt = (float) ($orphanedSub->reseller_price_snapshot ?: round($custAmt * 0.75, 2));
+            $costAmt = (float) ($orphanedSub->cost_price_snapshot ?: round($custAmt * 0.50, 2));
+            $orderNum = 'ORD-' . strtoupper(\Illuminate\Support\Str::random(8));
+
+            $ord = \App\Models\Order::create([
+                'organization_id' => $orphanedSub->organization_id,
+                'customer_id' => $orphanedSub->customer_id,
+                'order_number' => $orderNum,
+                'status' => 'completed',
+                'payment_status' => 'paid',
+                'payment_method' => 'wallet',
+                'subtotal' => $custAmt,
+                'tax_total' => 0,
+                'discount_total' => 0,
+                'grand_total' => $custAmt,
+                'currency' => $orphanedSub->currency ?? 'INR',
+                'placed_at' => $orphanedSub->created_at ?? now(),
+            ]);
+
+            $orderItemId = (string) \Illuminate\Support\Str::uuid();
+            \Illuminate\Support\Facades\DB::table('order_items')->insert([
+                'id' => $orderItemId,
+                'order_id' => $ord->id,
+                'orderable_type' => \App\Models\Service::class,
+                'orderable_id' => $plan?->service_id ?? (string) \Illuminate\Support\Str::uuid(),
+                'name' => ($plan?->service?->name ?? 'Cloud Service') . ($plan ? " ({$plan->name})" : ''),
+                'sku' => 'SRV-' . strtoupper(\Illuminate\Support\Str::random(6)),
+                'quantity' => 1,
+                'unit_price' => $custAmt,
+                'cost_price_at_purchase' => $costAmt,
+                'reseller_price_at_purchase' => $resAmt,
+                'customer_price_at_purchase' => $custAmt,
+                'final_price_at_purchase' => $custAmt,
+                'currency' => $orphanedSub->currency ?? 'INR',
+                'created_at' => $orphanedSub->created_at ?? now(),
+                'updated_at' => $orphanedSub->created_at ?? now(),
+            ]);
+
+            if ($org) {
+                $platProfit = max(0, $resAmt - $costAmt);
+                $resProfit = max(0, $custAmt - $resAmt);
+                $margin = $resAmt > 0 ? ($platProfit / $resAmt) : 0;
+                \Illuminate\Support\Facades\DB::table('profit_records')->insert([
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'organization_id' => $org->id,
+                    'order_item_id' => $orderItemId,
+                    'customer_id' => $orphanedSub->customer_id,
+                    'currency' => $orphanedSub->currency ?? 'INR',
+                    'platform_revenue' => $resAmt,
+                    'platform_cost' => $costAmt,
+                    'platform_gross_profit' => $platProfit,
+                    'reseller_revenue' => $custAmt,
+                    'reseller_profit' => $resProfit,
+                    'total_revenue' => $custAmt,
+                    'margin_pct' => $margin,
+                    'recorded_at' => $orphanedSub->created_at ?? now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $invNum = 'INV-' . str_replace('ORD-', '', $orderNum);
+            $inv = \App\Models\Invoice::withoutTenantScope()->create([
+                'invoice_number' => $invNum,
+                'organization_id' => $orphanedSub->organization_id,
+                'customer_id' => $orphanedSub->customer_id,
+                'order_id' => $ord->id,
+                'subscription_id' => $orphanedSub->id,
+                'type' => 'subscription',
+                'status' => 'paid',
+                'currency' => $orphanedSub->currency ?? 'INR',
+                'subtotal' => $custAmt,
+                'discount_total' => 0,
+                'tax_total' => 0,
+                'grand_total' => $custAmt,
+                'amount_paid' => $custAmt,
+                'amount_due' => 0,
+                'billing_details' => [
+                    'name' => $cust?->name ?? 'Customer',
+                    'email' => $cust?->email ?? '',
+                    'company' => $cust?->company ?? '',
+                ],
+                'seller_details' => [
+                    'company' => $org?->name ?? 'InfiniForge Cloud Solutions',
+                    'email' => $org?->support_email ?? 'billing@infiniforge.cloud',
+                    'gstin' => '36AABCU9603R1ZM',
+                    'address' => 'Cyber Gateway, HITEC City, Hyderabad, 500081, India',
+                ],
+                'issued_at' => $orphanedSub->created_at ?? now(),
+                'paid_at' => $orphanedSub->created_at ?? now(),
+                'notes' => 'Tax invoice for subscription #' . $orderNum,
+            ]);
+
+            \App\Models\InvoiceItem::create([
+                'invoice_id' => $inv->id,
+                'description' => ($plan?->service?->name ?? 'Cloud Service') . ($plan ? " - {$plan->name}" : ''),
+                'quantity' => 1,
+                'unit_price' => $custAmt,
+                'discount' => 0,
+                'tax_rate' => 0,
+                'tax_amount' => 0,
+                'total' => $custAmt,
+            ]);
+
+            $orphanedSub->update(['order_id' => $ord->id]);
+        }
+
+        // 6. Ensure all paid order items have profit_records
+        $existingProfitOrderItemIds = \Illuminate\Support\Facades\DB::table('profit_records')->pluck('order_item_id')->toArray();
+        $missingProfitItems = \Illuminate\Support\Facades\DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.payment_status', 'paid')
+            ->whereNotNull('orders.organization_id')
+            ->whereNotIn('order_items.id', $existingProfitOrderItemIds)
+            ->select('order_items.*', 'orders.organization_id', 'orders.customer_id', 'orders.placed_at')
+            ->get();
+        foreach ($missingProfitItems as $mItem) {
+            $cost = (float) ($mItem->cost_price_at_purchase ?? round($mItem->unit_price * 0.5, 2)) * ($mItem->quantity ?? 1);
+            $res = (float) ($mItem->reseller_price_at_purchase ?? round($mItem->unit_price * 0.75, 2)) * ($mItem->quantity ?? 1);
+            $cust = (float) ($mItem->customer_price_at_purchase ?? $mItem->unit_price) * ($mItem->quantity ?? 1);
+            $platP = max(0, $res - $cost);
+            $resP = max(0, $cust - $res);
+            $margin = $res > 0 ? ($platP / $res) : 0;
+            \Illuminate\Support\Facades\DB::table('profit_records')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $mItem->organization_id,
+                'order_item_id' => $mItem->id,
+                'customer_id' => $mItem->customer_id,
+                'currency' => $mItem->currency ?? 'INR',
+                'platform_revenue' => $res,
+                'platform_cost' => $cost,
+                'platform_gross_profit' => $platP,
+                'reseller_revenue' => $cust,
+                'reseller_profit' => $resP,
+                'total_revenue' => $cust,
+                'margin_pct' => $margin,
+                'recorded_at' => $mItem->placed_at ?? now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     } catch (\Throwable $e) {
         $output[] = 'Reconciliation notice: ' . $e->getMessage();
     }
