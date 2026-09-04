@@ -47,6 +47,10 @@
     RewriteCond %{REQUEST_URI} ^/test_api_call.php
     RewriteRule ^test_api_call.php$ backend/public/test_api_call.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
 
+    # Route /sync_catalog.php to backend/public/sync_catalog.php
+    RewriteCond %{REQUEST_URI} ^/sync_catalog.php
+    RewriteRule ^sync_catalog.php$ backend/public/sync_catalog.php [L,QSA,H=application/x-httpd-alt-php83___lsphp]
+
     # Serve static files and existing directories directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
