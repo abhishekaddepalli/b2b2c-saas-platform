@@ -29,6 +29,18 @@ class Wallet extends Model
         'last_transaction_at' => 'datetime',
     ];
 
+    protected $appends = ['balance', 'spendable'];
+
+    public function getBalanceAttribute(): float
+    {
+        return (float) ($this->available_balance ?? 0);
+    }
+
+    public function getSpendableAttribute(): float
+    {
+        return $this->getSpendableBalance();
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);

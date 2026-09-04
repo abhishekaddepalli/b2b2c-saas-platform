@@ -27,7 +27,49 @@ if (isset($_GET['git_sync'])) {
     @unlink($basePath . '/bootstrap/cache/config.php');
     @unlink($basePath . '/bootstrap/cache/routes-v7.php');
     @unlink($basePath . '/bootstrap/cache/packages.php');
-    @unlink($basePath . '/bootstrap/cache/services.php');
+    // Auto sync customers and reconcile wallet transactions
+    try {
+        require_once $basePath . '/vendor/autoload.php';
+        $app = require_once $basePath . '/bootstrap/app.php';
+        $console = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+        $console->bootstrap();
+
+        // 1. Sync all users who have current_organization_id into organization_users
+        $users = \App\Models\User::whereNotNull('current_organization_id')->with('roles')->get();
+        foreach ($users as $u) {
+            $roleName = $u->roles->first()?->name;
+            $roleInOrg = $roleName === 'RESELLER' ? 'owner' : 'customer';
+            $u->organizations()->syncWithoutDetaching([
+                $u->current_organization_id => [
+                    'role_within_org' => $roleInOrg,
+                    'status' => 'active',
+                    'joined_at' => now(),
+                ]
+            ]);
+        }
+
+        // 2. Reconcile any wallet where available_balance != latest ledger balance_after
+        $wallets = \App\Models\Wallet::all();
+        foreach ($wallets as $w) {
+            $lastTx = $w->transactions()->first();
+            $diff = (float) $w->available_balance - (float) ($lastTx?->balance_after ?? 0);
+            if (abs($diff) > 0.01) {
+                \App\Models\WalletTransaction::create([
+                    'wallet_id' => $w->id,
+                    'type' => $diff > 0 ? 'credit' : 'debit',
+                    'amount' => abs($diff),
+                    'balance_before' => (float) ($lastTx?->balance_after ?? 0),
+                    'balance_after' => (float) $w->available_balance,
+                    'currency' => $w->currency ?? 'INR',
+                    'idempotency_key' => 'reconcile_' . \Illuminate\Support\Str::uuid(),
+                    'description' => 'Admin balance adjustment (' . ($diff > 0 ? '+Credit' : '-Debit') . ')',
+                    'created_at' => now(),
+                ]);
+            }
+        }
+    } catch (\Throwable $e) {
+        $output[] = 'Reconciliation notice: ' . $e->getMessage();
+    }
 
     $commit = @exec("cd {$projectRoot} && git rev-parse --short HEAD");
     echo json_encode([

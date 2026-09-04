@@ -72,9 +72,13 @@ class UserController extends Controller
 
         // Attach to organization if selected
         if ($request->filled('organization_id')) {
-            $roleInOrg = $request->role === 'RESELLER' ? 'owner' : 'member';
+            $roleInOrg = $request->role === 'RESELLER' ? 'owner' : 'customer';
             $user->organizations()->syncWithoutDetaching([
-                $request->organization_id => ['role_within_org' => $roleInOrg, 'status' => 'active']
+                $request->organization_id => [
+                    'role_within_org' => $roleInOrg,
+                    'status' => 'active',
+                    'joined_at' => now(),
+                ]
             ]);
         }
 
@@ -119,6 +123,20 @@ class UserController extends Controller
         if ($request->filled('role')) {
             $role = Role::firstOrCreate(['name' => $request->role, 'guard_name' => 'web']);
             $user->syncRoles([$role]);
+        }
+
+        // Keep organization_users pivot in sync
+        $effectiveOrgId = $request->has('organization_id') ? $request->organization_id : $user->current_organization_id;
+        if ($effectiveOrgId) {
+            $effectiveRole = $request->role ?? ($user->roles->first()?->name ?? 'USER');
+            $roleInOrg = $effectiveRole === 'RESELLER' ? 'owner' : 'customer';
+            $user->organizations()->syncWithoutDetaching([
+                $effectiveOrgId => [
+                    'role_within_org' => $roleInOrg,
+                    'status' => 'active',
+                    'joined_at' => now(),
+                ]
+            ]);
         }
 
         return response()->json([

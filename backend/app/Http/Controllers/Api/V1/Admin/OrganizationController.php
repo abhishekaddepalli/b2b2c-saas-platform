@@ -169,6 +169,7 @@ class OrganizationController extends Controller
                 'currency' => 'INR',
                 'status' => 'active',
             ]);
+            $balanceBefore = (float) $wallet->available_balance;
             if ($adj < 0) {
                 $wallet->decrement('available_balance', abs($adj));
             } else {
@@ -176,6 +177,24 @@ class OrganizationController extends Controller
             }
             $wallet->last_transaction_at = now();
             $wallet->save();
+            $balanceAfter = (float) $wallet->available_balance;
+
+            try {
+                \App\Models\WalletTransaction::create([
+                    'wallet_id' => $wallet->id,
+                    'type' => $adj >= 0 ? 'credit' : 'debit',
+                    'amount' => abs($adj),
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'currency' => $wallet->currency ?? 'INR',
+                    'idempotency_key' => 'adm_org_adj_' . \Illuminate\Support\Str::uuid(),
+                    'description' => $request->wallet_note ?: ('Admin organization balance adjustment (' . ($adj >= 0 ? '+Credit' : '-Debit') . ')'),
+                    'created_by' => $request->user()?->id,
+                    'created_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed writing wallet transaction in org update: ' . $e->getMessage());
+            }
         }
 
         return response()->json([

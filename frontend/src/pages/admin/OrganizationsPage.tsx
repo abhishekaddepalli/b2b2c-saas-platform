@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, Plus, Search, CheckCircle, ShieldAlert,
@@ -197,9 +197,14 @@ export default function AdminOrganizations() {
       }),
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['admin', 'organizations'] });
-      setSelectedOrg(res.data?.data);
+      qc.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+      if (res.data?.data) {
+        setSelectedOrg(res.data.data);
+      }
       setWalletAdjustment(0);
-      setActionSuccess('Wallet balance updated successfully!');
+      setWalletNote('');
+      setActionSuccess('Wallet balance updated successfully and logged in ledger!');
+      setTimeout(() => setActionSuccess(''), 5000);
     },
   });
 
@@ -343,7 +348,7 @@ export default function AdminOrganizations() {
                 {orgs.map(org => {
                   const marginPct = org.metadata?.margin_percentage ?? 15;
                   const saasPlan = org.metadata?.saas_plan ?? 'pro';
-                  const walletBal = Number(org.wallet?.balance ?? 0);
+                  const walletBal = Number(org.wallet?.available_balance ?? org.wallet?.balance ?? 0);
 
                   return (
                     <tr key={org.id} className="hover:bg-slate-50/70 transition-colors group">
@@ -914,61 +919,132 @@ export default function AdminOrganizations() {
             )}
 
             {/* TAB 4: WALLET BALANCE CONTROL */}
-            {activeTab === 'wallet' && (
-              <div className="space-y-4 text-xs">
-                <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl flex items-center justify-between">
-                  <div>
-                    <div className="text-slate-400 text-xs font-medium">Current Reseller Wallet Balance</div>
-                    <div className="text-2xl font-black mt-0.5">
-                      ₹{Number(selectedOrg.wallet?.balance ?? 0).toLocaleString('en-IN')}
+            {activeTab === 'wallet' && (() => {
+              const currentBal = Number(selectedOrg.wallet?.available_balance ?? selectedOrg.wallet?.balance ?? 0);
+              const projectedBal = Math.max(0, currentBal + (walletAdjustment || 0));
+
+              return (
+                <div className="space-y-4 text-xs">
+                  <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl flex items-center justify-between shadow-md">
+                    <div>
+                      <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider">Current Reseller Wallet Balance</div>
+                      <div className="text-3xl font-black mt-1">
+                        ₹{currentBal.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[11px] text-slate-300 mt-0.5">
+                        Status: <span className="text-emerald-400 font-bold uppercase">Active</span> • Currency: {selectedOrg.currency || 'INR'}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-400/30">
+                      <Wallet className="w-8 h-8 text-indigo-300" />
                     </div>
                   </div>
-                  <Wallet className="w-8 h-8 text-indigo-400 opacity-75" />
-                </div>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <label className="block font-bold text-slate-800">
-                    Direct Balance Adjustment (+ Credit / - Debit)
-                  </label>
-                  <div className="flex gap-2">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-bold text-slate-800">
+                        Direct Balance Adjustment (+ Credit / - Debit)
+                      </label>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        Quick Add:
+                      </span>
+                    </div>
+
+                    {/* Quick Amount Buttons */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {[1000, 2000, 5000, 10000, 25000].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setWalletAdjustment(amt)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                            walletAdjustment === amt
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600'
+                          }`}
+                        >
+                          +₹{amt.toLocaleString('en-IN')}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setWalletAdjustment(-1000)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                          walletAdjustment === -1000
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                            : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'
+                        }`}
+                      >
+                        -₹1,000
+                      </button>
+                      {walletAdjustment !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setWalletAdjustment(0)}
+                          className="px-2 py-1 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. +5000 or -1500"
+                        value={walletAdjustment || ''}
+                        onChange={e => setWalletAdjustment(parseFloat(e.target.value) || 0)}
+                        className="flex-1 px-3 py-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 font-mono text-sm font-bold text-slate-800"
+                      />
+                    </div>
+
+                    {walletAdjustment !== 0 && (
+                      <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between text-xs font-semibold">
+                        <span className="text-slate-600">Projected Balance After Adjustment:</span>
+                        <span className="text-indigo-700 font-black text-sm">₹{projectedBal.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+
                     <input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. +5000 or -1500"
-                      value={walletAdjustment || ''}
-                      onChange={e => setWalletAdjustment(parseFloat(e.target.value) || 0)}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                      type="text"
+                      placeholder="Reason / Reference Note (e.g. Manual bank deposit, credit top-up)"
+                      value={walletNote}
+                      onChange={e => setWalletNote(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 text-xs"
                     />
+                    <p className="text-[11px] text-slate-400">
+                      Entering a positive number credits the reseller wallet. Negative number deducts funds immediately. This transaction is permanently logged into the reseller's ledger.
+                    </p>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Reason / Reference Note (optional)"
-                    value={walletNote}
-                    onChange={e => setWalletNote(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <p className="text-[11px] text-slate-400">
-                    Entering a positive number credits the reseller wallet. Negative number deducts funds immediately.
-                  </p>
-                </div>
 
-                <button
-                  type="button"
-                  disabled={walletAdjustment === 0 || walletMutation.isPending}
-                  onClick={() =>
-                    walletMutation.mutate({
-                      id: selectedOrg.id,
-                      wallet_adjustment: walletAdjustment,
-                      note: walletNote,
-                    })
-                  }
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                >
-                  {walletMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
-                  Apply Balance Adjustment
-                </button>
-              </div>
-            )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={walletAdjustment === 0 || walletMutation.isPending}
+                      onClick={() =>
+                        walletMutation.mutate({
+                          id: selectedOrg.id,
+                          wallet_adjustment: walletAdjustment,
+                          note: walletNote,
+                        })
+                      }
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+                    >
+                      {walletMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
+                      Apply Balance Adjustment
+                    </button>
+                    <Link
+                      to="/admin/wallets"
+                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-center shrink-0"
+                      title="Open full ledger and credit facility management"
+                    >
+                      View All Wallets →
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* TAB 5: GOVERNANCE & DETAILS */}
             {activeTab === 'details' && (

@@ -8,8 +8,10 @@ import {
   ScrollText,
   Store,
   Zap,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import LiveChatWidget from '../chat/LiveChatWidget';
 
 const navItems = [
@@ -22,6 +24,7 @@ const navItems = [
 
 export default function CustomerLayout() {
   const { user, logout } = useAuth();
+  const { openCart, itemCount } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -61,6 +64,21 @@ export default function CustomerLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Cart Trigger */}
+            <button
+              type="button"
+              onClick={openCart}
+              className="relative p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-xl transition-all cursor-pointer"
+              title="View Shopping Cart"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-in zoom-in shadow-xs">
+                  {itemCount > 9 ? '9+' : itemCount}
+                </span>
+              )}
+            </button>
+
             <button className="text-slate-500 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100 transition-colors">
               <Bell className="w-5 h-5" />
             </button>
