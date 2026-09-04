@@ -185,8 +185,9 @@ class SettingController extends Controller
             // tawk.to Live Chat Integration
             'enable_tawkto' => true,
             'tawkto_property_id' => '',
-            'tawkto_widget_id' => 'default',
+            'tawkto_widget_id' => '',
             'tawkto_direct_chat_link' => '',
+            'tawkto_embed_code' => '',
             'tawkto_chat_mode' => 'hybrid', // 'official', 'custom', 'hybrid'
             'tawkto_sync_visitor_user' => true,
         ];
@@ -246,7 +247,7 @@ class SettingController extends Controller
             'chat_widget_primary_color', 'chat_widget_position', 'chat_widget_whatsapp_number',
             'chat_widget_agent_name', 'chat_widget_agent_avatar', 'support_hours', 'support_sla_hours',
             'enable_tawkto', 'tawkto_property_id', 'tawkto_widget_id', 'tawkto_direct_chat_link',
-            'tawkto_chat_mode', 'tawkto_sync_visitor_user',
+            'tawkto_embed_code', 'tawkto_chat_mode', 'tawkto_sync_visitor_user',
             'enable_google_oauth', 'enable_github_oauth', 'enable_facebook_oauth', 'enable_microsoft_oauth',
             'enable_captcha', 'captcha_provider', 'captcha_site_key',
         ];

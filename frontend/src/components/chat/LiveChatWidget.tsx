@@ -43,8 +43,9 @@ export default function LiveChatWidget() {
     // tawk.to Integration
     enableTawkto: true,
     tawktoPropertyId: '',
-    tawktoWidgetId: 'default',
+    tawktoWidgetId: '',
     tawktoDirectChatLink: '',
+    tawktoEmbedCode: '',
     tawktoChatMode: 'hybrid', // 'official' | 'custom' | 'hybrid'
     tawktoSyncUser: true,
   });
@@ -62,6 +63,20 @@ export default function LiveChatWidget() {
     fetchSettings.then(res => {
       if (isMounted && res.data?.data) {
         const d = res.data.data;
+        let propId = d.tawkto_property_id || '';
+        let widgetId = d.tawkto_widget_id || '';
+        const directLink = d.tawkto_direct_chat_link || '';
+        const embedCode = d.tawkto_embed_code || '';
+
+        // Smart extract if widgetId is missing or 'default'
+        if (!widgetId || widgetId === 'default') {
+          const match = (directLink + ' ' + embedCode).match(/(?:embed\.tawk\.to|tawk\.to\/chat)\/([a-f0-9]{24})\/([a-zA-Z0-9_-]+)/i);
+          if (match) {
+            propId = propId || match[1];
+            widgetId = match[2];
+          }
+        }
+
         setConfig(prev => ({
           ...prev,
           enabled: d.enable_chat_widget !== false,
@@ -78,9 +93,10 @@ export default function LiveChatWidget() {
 
           // tawk.to
           enableTawkto: d.enable_tawkto !== false,
-          tawktoPropertyId: d.tawkto_property_id || prev.tawktoPropertyId,
-          tawktoWidgetId: d.tawkto_widget_id || prev.tawktoWidgetId,
-          tawktoDirectChatLink: d.tawkto_direct_chat_link || prev.tawktoDirectChatLink,
+          tawktoPropertyId: propId || prev.tawktoPropertyId,
+          tawktoWidgetId: widgetId || prev.tawktoWidgetId,
+          tawktoDirectChatLink: directLink || prev.tawktoDirectChatLink,
+          tawktoEmbedCode: embedCode || prev.tawktoEmbedCode,
           tawktoChatMode: d.tawkto_chat_mode || prev.tawktoChatMode,
           tawktoSyncUser: d.tawkto_sync_visitor_user !== false,
         }));
@@ -164,17 +180,22 @@ export default function LiveChatWidget() {
 
   const handleLaunchTawkTo = () => {
     if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
-      window.Tawk_API.maximize();
-      setIsOpen(false);
+      try {
+        window.Tawk_API.maximize();
+        setIsOpen(false);
+        return;
+      } catch {}
+    }
+    if (config.tawktoDirectChatLink && !config.tawktoDirectChatLink.endsWith('/default')) {
+      window.open(config.tawktoDirectChatLink, '_blank', 'width=460,height=680,scrollbars=yes,resizable=yes');
       return;
     }
-    if (config.tawktoDirectChatLink) {
-      window.open(config.tawktoDirectChatLink, '_blank', 'width=450,height=650');
+    if (config.tawktoPropertyId && config.tawktoWidgetId && config.tawktoWidgetId !== 'default') {
+      window.open(`https://tawk.to/chat/${config.tawktoPropertyId}/${config.tawktoWidgetId}`, '_blank', 'width=460,height=680,scrollbars=yes,resizable=yes');
       return;
     }
     if (config.tawktoPropertyId) {
-      const link = `https://tawk.to/chat/${config.tawktoPropertyId}/${config.tawktoWidgetId || 'default'}`;
-      window.open(link, '_blank', 'width=450,height=650');
+      window.open(`https://tawk.to/chat/${config.tawktoPropertyId}/${config.tawktoWidgetId || 'default'}`, '_blank', 'width=460,height=680,scrollbars=yes,resizable=yes');
     }
   };
 

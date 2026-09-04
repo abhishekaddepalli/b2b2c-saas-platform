@@ -26,9 +26,69 @@ export default function AdminSettings() {
   const [wcTestFeedback, setWcTestFeedback] = useState<{ success: boolean; message: string; env?: any } | null>(null);
 
   // tawk.to state
+  const [smartPasteInput, setSmartPasteInput] = useState('');
+  const [parseFeedback, setParseFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedTawktoScript, setCopiedTawktoScript] = useState(false);
   const [copiedTawktoLink, setCopiedTawktoLink] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
+
+  const handleSmartParse = (raw: string) => {
+    const text = raw.trim();
+    if (!text) return;
+
+    // Matches https://tawk.to/chat/{property_id}/{widget_id} or https://embed.tawk.to/{property_id}/{widget_id}
+    const urlMatch = text.match(/(?:embed\.tawk\.to|tawk\.to\/chat)\/([a-f0-9]{24})\/([a-zA-Z0-9_-]+)/i);
+    const slashMatch = text.match(/^([a-f0-9]{24})\/([a-zA-Z0-9_-]+)$/i);
+    const srcMatch = text.match(/src=['"]https:\/\/embed\.tawk\.to\/([a-f0-9]{24})\/([a-zA-Z0-9_-]+)['"]/i);
+
+    const match = urlMatch || slashMatch || srcMatch;
+
+    if (match) {
+      const propId = match[1];
+      const widgetId = match[2];
+      const directUrl = `https://tawk.to/chat/${propId}/${widgetId}`;
+
+      setForm((prev: any) => ({
+        ...prev,
+        tawkto_property_id: propId,
+        tawkto_widget_id: widgetId,
+        tawkto_direct_chat_link: directUrl,
+        enable_tawkto: true,
+        ...(text.includes('<script') ? { tawkto_embed_code: text } : {}),
+      }));
+
+      setParseFeedback({
+        success: true,
+        message: `✓ Successfully detected Property ID (${propId}) and Widget ID (${widgetId})! Real chat link is ready.`,
+      });
+      setSmartPasteInput('');
+    } else if (/^[a-f0-9]{24}$/i.test(text)) {
+      setForm((prev: any) => ({
+        ...prev,
+        tawkto_property_id: text,
+      }));
+      setParseFeedback({
+        success: false,
+        message: `Property ID (${text}) detected! Notice: in tawk.to your Widget ID is NOT "default". Please copy and paste your full "Direct Chat Link" from tawk.to (e.g. https://tawk.to/chat/${text}/...) so your real widget ID is automatically configured.`,
+      });
+    } else if (text.includes('<script')) {
+      setForm((prev: any) => ({
+        ...prev,
+        tawkto_embed_code: text,
+        enable_tawkto: true,
+      }));
+      setParseFeedback({
+        success: true,
+        message: '✓ Raw script tag saved successfully! The widget will be injected across your platform.',
+      });
+      setSmartPasteInput('');
+    } else {
+      setParseFeedback({
+        success: false,
+        message: 'Could not auto-detect credentials. Please copy and paste your full Direct Chat Link (e.g. https://tawk.to/chat/...) or full Embed Script from dashboard.tawk.to.',
+      });
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'settings'],
@@ -194,8 +254,9 @@ export default function AdminSettings() {
     // tawk.to Live Chat Integration
     enable_tawkto: true,
     tawkto_property_id: '',
-    tawkto_widget_id: 'default',
+    tawkto_widget_id: '',
     tawkto_direct_chat_link: '',
+    tawkto_embed_code: '',
     tawkto_chat_mode: 'hybrid', // 'official', 'custom', 'hybrid'
     tawkto_sync_visitor_user: true,
   });
@@ -783,33 +844,59 @@ export default function AdminSettings() {
 
                 {/* Status Diagnostic Bar */}
                 {form.enable_tawkto && form.tawkto_property_id ? (
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                      <div>
-                        <div className="font-extrabold text-emerald-900 text-xs flex items-center gap-1.5">
-                          <span>Live Chat Service is Active & Ready</span>
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-800 text-[10px] font-mono">
-                            ID: {form.tawkto_property_id.slice(0, 10)}...
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
-                          Visitors and resellers can start conversations immediately. Incoming chats appear on your tawk.to console.
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                        <div>
+                          <div className="font-extrabold text-emerald-900 text-xs flex items-center gap-1.5">
+                            <span>Live Chat Service is Configured</span>
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-800 text-[10px] font-mono">
+                              Property: {form.tawkto_property_id.slice(0, 10)}...
+                            </span>
+                            {form.tawkto_widget_id && form.tawkto_widget_id !== 'default' && (
+                              <span className="px-1.5 py-0.5 rounded bg-teal-200/80 text-teal-900 text-[10px] font-mono">
+                                Widget: {form.tawkto_widget_id}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
+                            Visitors and resellers can start conversations immediately. Incoming chats appear on your tawk.to console.
+                          </div>
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!form.tawkto_widget_id || form.tawkto_widget_id === 'default') {
+                            alert("Notice: In modern tawk.to accounts, your Widget ID is a unique generated code (like 1i8k9p2ab), NOT 'default'. Using 'default' will result in a 'Page not Found' error.\n\nPlease copy your 'Direct Chat Link' from tawk.to (Administration -> Chat Widget) and paste it into the Smart Auto-Detect box below to automatically set your real Widget ID!");
+                          }
+                          const directUrl = form.tawkto_direct_chat_link || `https://tawk.to/chat/${form.tawkto_property_id}/${form.tawkto_widget_id || 'default'}`;
+                          window.open(directUrl, 'tawkto_test_window', 'width=460,height=680,scrollbars=yes,resizable=yes');
+                        }}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs inline-flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Launch Test Chat Window</span>
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const directUrl = form.tawkto_direct_chat_link || `https://tawk.to/chat/${form.tawkto_property_id}/${form.tawkto_widget_id || 'default'}`;
-                        window.open(directUrl, 'tawkto_test_window', 'width=460,height=680,scrollbars=yes,resizable=yes');
-                      }}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs inline-flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Launch Test Chat Window</span>
-                    </button>
+                    {/* Warning if widget_id is default or missing */}
+                    {(!form.tawkto_widget_id || form.tawkto_widget_id === 'default') && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex items-start gap-3 animate-in fade-in">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-xs text-amber-950">
+                            Attention: Widget ID is currently &quot;default&quot; (Cause of &quot;Oops! Page not Found!&quot;)
+                          </div>
+                          <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                            In tawk.to, modern accounts create a unique alphanumeric Widget ID (e.g. <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono text-[10px] text-amber-900 font-bold">1h8a9bcde</code>). Using &quot;default&quot; causes tawk.to to display <i>&quot;Oops! Page not Found!&quot;</i>.<br />
+                            <b>Solution:</b> In your <a href="https://dashboard.tawk.to/" target="_blank" rel="noreferrer" className="underline font-bold text-amber-950">tawk.to Dashboard</a>, go to <b>Administration ⚙️ → Chat Widget</b>, copy your <b>Direct Chat Link</b>, and paste it into the <b>Smart 1-Click Auto-Detect</b> box below!
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center gap-3 text-amber-900">
@@ -817,41 +904,99 @@ export default function AdminSettings() {
                     <div>
                       <div className="font-bold text-xs">tawk.to Configuration Required</div>
                       <div className="text-[11px] text-amber-700 mt-0.5">
-                        Please provide your tawk.to Property ID below to activate live chatting across public and authenticated areas.
+                        Please paste your tawk.to Direct Chat Link or Embed Script below to activate live messaging across your marketplace and customer portals.
                       </div>
                     </div>
                   </div>
                 )}
+
+                {/* Smart 1-Click Auto-Detect & Setup Box */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-lg space-y-3 border border-emerald-500/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-700/40 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                        <Zap className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                          Smart 1-Click Auto-Detect & Setup
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-400 text-emerald-950 uppercase tracking-wider">
+                            Recommended
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-emerald-200">
+                          Paste anything from tawk.to (Direct Chat Link, Embed Code, or Widget Code). We instantly parse your Property ID and real Widget ID!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={smartPasteInput}
+                        onChange={e => setSmartPasteInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSmartParse(smartPasteInput); }}
+                        placeholder="Paste https://tawk.to/chat/6a9a.../... OR <script src='https://embed.tawk.to/...'>..."
+                        className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/40 text-xs font-mono text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSmartParse(smartPasteInput)}
+                        className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black rounded-xl text-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0"
+                      >
+                        <Sparkles className="w-4 h-4 text-emerald-950" />
+                        <span>Auto-Detect & Apply</span>
+                      </button>
+                    </div>
+
+                    {parseFeedback && (
+                      <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                        parseFeedback.success
+                          ? 'bg-emerald-950/90 border border-emerald-500 text-emerald-200'
+                          : 'bg-rose-950/90 border border-rose-500 text-rose-200'
+                      }`}>
+                        {parseFeedback.success ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        )}
+                        <span>{parseFeedback.message}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* 3-Step Setup Guide */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                     <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">1</span>
-                      <span>Create Free Account</span>
+                      <span>Open tawk.to Dashboard</span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Sign up free at <a href="https://dashboard.tawk.to/" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold underline">dashboard.tawk.to</a>. No credit card required.
+                      Sign in to <a href="https://dashboard.tawk.to/" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold underline">dashboard.tawk.to</a>.
                     </p>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                     <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">2</span>
-                      <span>Copy Widget IDs</span>
+                      <span>Copy Direct Chat Link</span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Go to <b>Administration ⚙️ → Channels → Chat Widget</b>. Copy the Property ID & Widget ID.
+                      Go to <b>Administration ⚙️ → Channels → Chat Widget</b>. Copy the <b>Direct Chat Link</b>.
                     </p>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                     <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">3</span>
-                      <span>Save & Deploy</span>
+                      <span>Paste in Auto-Detect Box</span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Paste below, choose your display mode, and click <b>Save Settings</b> to go live instantly!
+                      Paste into the <b>Auto-Detect box above</b> and click <b>Save Settings</b>. Done!
                     </p>
                   </div>
                 </div>
@@ -877,7 +1022,7 @@ export default function AdminSettings() {
                         className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50/50 hover:bg-white focus:bg-white transition-colors"
                       />
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Usually a 24-character hexadecimal string from your embed URL <code className="text-slate-600 font-mono">embed.tawk.to/[property_id]/[widget_id]</code>.
+                        24-character hexadecimal Property ID from <code className="text-slate-600 font-mono">embed.tawk.to/[property_id]/[widget_id]</code>.
                       </p>
                     </div>
 
@@ -889,11 +1034,11 @@ export default function AdminSettings() {
                         type="text"
                         value={form.tawkto_widget_id}
                         onChange={e => updateField('tawkto_widget_id', e.target.value.trim())}
-                        placeholder="default"
+                        placeholder="e.g. 1h8a9bcde (NOT 'default')"
                         className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50/50 hover:bg-white focus:bg-white transition-colors"
                       />
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Default widget name is usually <code className="text-slate-600 font-mono">default</code> or a custom string like <code className="text-slate-600 font-mono">1h8abcdef</code>.
+                        Unique widget code from your Direct Chat Link (e.g. <code className="text-slate-600 font-mono">1i8k9p2ab</code>). Do not use &quot;default&quot;.
                       </p>
                     </div>
 
@@ -904,12 +1049,40 @@ export default function AdminSettings() {
                       <input
                         type="url"
                         value={form.tawkto_direct_chat_link}
-                        onChange={e => updateField('tawkto_direct_chat_link', e.target.value.trim())}
-                        placeholder={`https://tawk.to/chat/${form.tawkto_property_id || 'property_id'}/${form.tawkto_widget_id || 'default'}`}
+                        onChange={e => {
+                          const val = e.target.value.trim();
+                          updateField('tawkto_direct_chat_link', val);
+                          if (val.includes('tawk.to/chat')) {
+                            handleSmartParse(val);
+                          }
+                        }}
+                        placeholder={`https://tawk.to/chat/${form.tawkto_property_id || 'property_id'}/${form.tawkto_widget_id || 'widget_id'}`}
                         className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50/50 hover:bg-white focus:bg-white transition-colors"
                       />
                       <p className="text-[11px] text-slate-400 mt-1">
                         Allows linking directly to chat from external marketing emails, invoices, or social bios.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Raw tawk.to Embed Script (Optional)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={form.tawkto_embed_code || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateField('tawkto_embed_code', val);
+                          if (val.includes('embed.tawk.to')) {
+                            handleSmartParse(val);
+                          }
+                        }}
+                        placeholder="<!-- Start of Tawk.to Script -->&#10;<script type='text/javascript'>...</script>"
+                        className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        You can paste your complete raw snippet here. It will be injected verbatim if specified.
                       </p>
                     </div>
 
@@ -1010,6 +1183,9 @@ export default function AdminSettings() {
                             if (!form.tawkto_property_id) {
                               alert('Please enter your tawk.to Property ID first.');
                               return;
+                            }
+                            if (!form.tawkto_widget_id || form.tawkto_widget_id === 'default') {
+                              alert("Notice: In modern tawk.to accounts, your Widget ID is a unique generated code (like 1i8k9p2ab), NOT 'default'. Using 'default' will result in a 'Page not Found' error.\n\nPlease copy your 'Direct Chat Link' from tawk.to (Administration -> Chat Widget) and paste it into the Smart Auto-Detect box above to automatically set your real Widget ID!");
                             }
                             const directUrl = form.tawkto_direct_chat_link || `https://tawk.to/chat/${form.tawkto_property_id}/${form.tawkto_widget_id || 'default'}`;
                             window.open(directUrl, 'tawkto_popup', 'width=460,height=680,scrollbars=yes,resizable=yes');
