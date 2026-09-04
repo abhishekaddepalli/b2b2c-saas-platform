@@ -330,11 +330,11 @@ if (isset($_GET['git_sync'])) {
         $stats = [
             'users_count' => \App\Models\User::count(),
             'subscriptions_count' => \App\Models\Subscription::withoutTenantScope()->count(),
-            'orders_count' => \App\Models\Order::withoutTenantScope()->count(),
+            'orders_count' => \App\Models\Order::count(),
             'invoices_count' => \App\Models\Invoice::withoutTenantScope()->count(),
             'profit_records_count' => \Illuminate\Support\Facades\DB::table('profit_records')->count(),
-            'jay_orders' => \App\Models\Order::withoutTenantScope()->whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->with('items')->get(),
-            'jay_spend' => (float) \App\Models\Order::withoutTenantScope()->whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->where('payment_status', 'paid')->sum('grand_total'),
+            'jay_orders' => \App\Models\Order::whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->with('items')->get(),
+            'jay_spend' => (float) \App\Models\Order::whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->where('payment_status', 'paid')->sum('grand_total'),
         ];
     } catch (\Throwable $e) {
         $stats['error'] = $e->getMessage();
