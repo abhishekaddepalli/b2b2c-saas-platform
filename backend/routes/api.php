@@ -169,9 +169,11 @@ Route::prefix('v1')->group(function () {
             Route::get('orders', [\App\Http\Controllers\Api\V1\Admin\OrderController::class, 'index']);
             Route::get('orders/{id}', [\App\Http\Controllers\Api\V1\Admin\OrderController::class, 'show']);
             Route::post('orders/{id}/status', [\App\Http\Controllers\Api\V1\Admin\OrderController::class, 'updateStatus']);
+            Route::post('orders/{id}/fulfillment', [\App\Http\Controllers\Api\V1\Admin\OrderController::class, 'updateFulfillment']);
             Route::post('orders/{id}/refund', [\App\Http\Controllers\Api\V1\Admin\OrderController::class, 'refund']);
 
             Route::get('subscriptions', [\App\Http\Controllers\Api\V1\Admin\SubscriptionController::class, 'index']);
+            Route::post('subscriptions/{id}/access', [\App\Http\Controllers\Api\V1\Admin\SubscriptionController::class, 'updateAccess']);
             Route::post('subscriptions/{id}/suspend', [\App\Http\Controllers\Api\V1\Admin\SubscriptionController::class, 'suspend']);
             Route::post('subscriptions/{id}/reactivate', [\App\Http\Controllers\Api\V1\Admin\SubscriptionController::class, 'reactivate']);
 

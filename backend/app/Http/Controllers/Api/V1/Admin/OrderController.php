@@ -75,4 +75,50 @@ class OrderController extends Controller
             'data' => $order,
         ]);
     }
+
+    public function updateFulfillment(Request $request, string $id): JsonResponse
+    {
+        $order = Order::with('items')->findOrFail($id);
+
+        $itemId = $request->input('item_id');
+        $item = $itemId ? $order->items->firstWhere('id', $itemId) : $order->items->first();
+
+        if ($item) {
+            $existingMeta = is_array($item->metadata) ? $item->metadata : (json_decode($item->metadata, true) ?: []);
+
+            $fieldsToUpdate = [
+                'license_key' => $request->license_key,
+                'software_url' => $request->software_url,
+                'login_portal_url' => $request->login_portal_url,
+                'login_username' => $request->login_username,
+                'login_password' => $request->login_password,
+                'access_instructions' => $request->access_instructions,
+                'expires_at' => $request->expires_at,
+                'validity_days' => $request->validity_days,
+                'tracking_number' => $request->tracking_number,
+                'courier' => $request->courier,
+                'shipping_status' => $request->shipping_status,
+                'download_url' => $request->download_url,
+                'file_version' => $request->file_version,
+                'admin_notes' => $request->admin_notes,
+                'live_preview_url' => $request->live_preview_url,
+            ];
+
+            foreach ($fieldsToUpdate as $key => $val) {
+                if (!is_null($val)) {
+                    $existingMeta[$key] = $val;
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::table('order_items')->where('id', $item->id)->update([
+                'metadata' => json_encode($existingMeta),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Fulfillment credentials, software keys, and delivery details updated successfully.',
+            'data' => $order->fresh(['items', 'customer']),
+        ]);
+    }
 }

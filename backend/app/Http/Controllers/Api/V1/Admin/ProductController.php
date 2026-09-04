@@ -69,6 +69,10 @@ class ProductController extends Controller
             'visibility' => $request->visibility ?? 'public',
             'status' => $request->status ?? 'active',
             'featured' => $request->boolean('featured', false),
+            'stock_quantity' => $request->stock_quantity ?? 100,
+            'weight' => $request->weight,
+            'specifications' => $request->specifications ?? [],
+            'metadata' => $request->metadata ?? [],
         ]);
 
         if ($request->filled('image_url')) {
@@ -107,7 +111,8 @@ class ProductController extends Controller
 
         $data = $request->only([
             'name', 'sku', 'short_description', 'full_description',
-            'visibility', 'status', 'category_id', 'type', 'featured'
+            'visibility', 'status', 'category_id', 'type', 'featured',
+            'weight', 'stock_quantity', 'specifications', 'metadata'
         ]);
 
         if ($request->filled('slug')) {

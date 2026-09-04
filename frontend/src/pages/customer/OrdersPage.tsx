@@ -6,6 +6,7 @@ import {
   Loader2, IndianRupee, Eye, ExternalLink, X, FileText
 } from 'lucide-react';
 import { ordersApi } from '../../api';
+import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -151,7 +152,7 @@ export default function CustomerOrders() {
       {/* ORDER DETAILS MODAL */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto text-xs">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400">Order Details</span>
@@ -167,21 +168,23 @@ export default function CustomerOrders() {
               </button>
             </div>
 
-            <div className="space-y-2">
-              <div className="font-bold text-slate-900">Items in this Order:</div>
-              <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                {(selectedOrder.items || [{ name: 'Cloud License Product', quantity: 1, unit_price: selectedOrder.total_amount }]).map((it: any, idx: number) => (
-                  <div key={idx} className="p-3 flex items-center justify-between bg-white">
-                    <div>
-                      <div className="font-bold text-slate-800">{it.name || 'Digital Catalog Product'}</div>
-                      <div className="text-[11px] text-slate-400">Qty: {it.quantity || 1} • Instant Digital Access</div>
-                    </div>
-                    <div className="font-bold text-slate-900">
-                      ₹{(Number(it.unit_price || 0) * (it.quantity || 1)).toLocaleString('en-IN')}
-                    </div>
-                  </div>
-                ))}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">Purchased Products & Licenses ({selectedOrder.items?.length || 1}):</span>
+                <span className="text-[10px] text-indigo-600 font-semibold">Instant Access & License Keys</span>
               </div>
+
+              {(selectedOrder.items && selectedOrder.items.length > 0) ? (
+                selectedOrder.items.map((it: any) => (
+                  <div key={it.id || it.name} className="space-y-2">
+                    <FulfillmentCard item={it} />
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-500 text-center">
+                  Total Paid: ₹{Number(selectedOrder.total_amount ?? selectedOrder.grand_total ?? 0).toLocaleString('en-IN')}
+                </div>
+              )}
             </div>
 
             <div className="p-3 bg-slate-50 rounded-xl flex justify-between items-center text-xs">

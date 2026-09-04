@@ -126,6 +126,10 @@ export interface Product {
   visibility: 'public' | 'reseller_only' | 'hidden';
   featured: boolean;
   stock_quantity: number | null;
+  weight?: number | null;
+  specifications?: any;
+  is_shippable?: boolean;
+  metadata?: any;
   tags: string[];
   category: Category | null;
   images: ProductImage[];
@@ -158,6 +162,7 @@ export interface Service {
   billing_type: 'one_time' | 'recurring';
   billing_interval: 'monthly' | 'quarterly' | 'half_yearly' | 'yearly' | 'custom';
   trial_days: number;
+  metadata?: any;
   category: Category | null;
   plans: ServicePlan[];
 }
@@ -176,6 +181,8 @@ export interface OrderItem {
   cost_price_at_purchase: number;
   reseller_price_at_purchase: number;
   customer_price_at_purchase: number;
+  product_type?: string;
+  metadata?: any;
 }
 
 export interface Order {
@@ -212,6 +219,7 @@ export interface Subscription {
   next_billing_at: string;
   auto_renew: boolean;
   service_plan: ServicePlan & { service?: Service };
+  metadata?: any;
   created_at?: string;
 }
 

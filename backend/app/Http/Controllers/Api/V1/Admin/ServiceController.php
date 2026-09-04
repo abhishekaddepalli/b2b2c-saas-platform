@@ -70,6 +70,7 @@ class ServiceController extends Controller
                 'billing_interval' => in_array($request->billing_interval, ['monthly', 'quarterly', 'half_yearly', 'yearly', 'custom']) ? $request->billing_interval : 'monthly',
                 'trial_days' => (int)($request->trial_days ?? 0),
                 'featured' => $request->boolean('featured', false),
+                'metadata' => $request->metadata ?? [],
             ]);
 
             // Handle multi-plan array or default plan
@@ -130,7 +131,7 @@ class ServiceController extends Controller
 
         $data = $request->only([
             'name', 'short_description', 'full_description',
-            'visibility', 'status', 'category_id', 'featured', 'trial_days'
+            'visibility', 'status', 'category_id', 'featured', 'trial_days', 'metadata'
         ]);
 
         if ($request->filled('image_url') || $request->filled('icon')) {

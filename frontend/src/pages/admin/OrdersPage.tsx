@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Search, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, X, Eye, RefreshCw,
-  ShoppingBag, Calendar, Clock, CreditCard
+  ShoppingBag, Calendar, Clock, CreditCard,
+  Key, Edit3, Truck, Download, ShieldCheck, Globe, Sparkles
 } from 'lucide-react';
 import { adminApi } from '../../api';
 import type { Order } from '../../types';
+import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -23,6 +25,24 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [fulfillmentForm, setFulfillmentForm] = useState({
+    license_key: '',
+    software_url: '',
+    login_portal_url: '',
+    login_username: '',
+    login_password: '',
+    expires_at: '',
+    validity_days: 365,
+    access_instructions: '',
+    courier: '',
+    tracking_number: '',
+    shipping_status: 'shipped',
+    download_url: '',
+    file_version: 'v1.0.0',
+    admin_notes: '',
+    live_preview_url: '',
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'orders', search, statusFilter],
@@ -58,6 +78,52 @@ export default function AdminOrders() {
       setTimeout(() => setSuccessMsg(''), 3000);
     },
   });
+
+  // Fulfillment Update Mutation
+  const updateFulfillmentMutation = useMutation({
+    mutationFn: ({ orderId, payload }: { orderId: string; payload: any }) =>
+      adminApi.updateOrderFulfillment(orderId, payload),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      setSelectedOrder(res.data?.data);
+      setEditingItem(null);
+      setSuccessMsg('Fulfillment details, credentials & license keys updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || 'Failed to update fulfillment details.');
+    }
+  });
+
+  const openEditFulfillment = (item: any) => {
+    setEditingItem(item);
+    const meta = typeof item?.metadata === 'object' && item?.metadata !== null
+      ? item.metadata
+      : (typeof item?.metadata === 'string' ? JSON.parse(item.metadata || '{}') : {});
+    setFulfillmentForm({
+      license_key: meta.license_key || '',
+      software_url: meta.software_url || '',
+      login_portal_url: meta.login_portal_url || '',
+      login_username: meta.login_username || '',
+      login_password: meta.login_password || '',
+      expires_at: meta.expires_at ? meta.expires_at.split('T')[0] : '',
+      validity_days: meta.validity_days || 365,
+      access_instructions: meta.access_instructions || '',
+      courier: meta.courier || '',
+      tracking_number: meta.tracking_number || '',
+      shipping_status: meta.shipping_status || 'shipped',
+      download_url: meta.download_url || '',
+      file_version: meta.file_version || 'v1.0.0',
+      admin_notes: meta.admin_notes || '',
+      live_preview_url: meta.live_preview_url || '',
+    });
+  };
+
+  const generateLicenseKey = () => {
+    const segment = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+    const newKey = `${segment()}-${segment()}-${segment()}-${segment()}`;
+    setFulfillmentForm(f => ({ ...f, license_key: newKey }));
+  };
 
   return (
     <div className="space-y-6">
@@ -249,7 +315,7 @@ export default function AdminOrders() {
       {/* ORDER DETAILS MODAL */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[92vh] overflow-y-auto text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -269,26 +335,32 @@ export default function AdminOrders() {
               </button>
             </div>
 
-            {/* Line Items */}
-            <div className="space-y-3">
-              <span className="text-xs font-bold text-slate-800">Order Line Items</span>
-              <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden text-xs">
-                {(selectedOrder.items && selectedOrder.items.length > 0) ? (
-                  selectedOrder.items.map((it: any) => (
-                    <div key={it.id} className="p-3 flex items-center justify-between bg-white">
-                      <div>
-                        <div className="font-bold text-slate-900">{it.name || 'Catalog Item'}</div>
-                        <div className="text-[11px] text-slate-400">Qty: {it.quantity} × ₹{it.unit_price}</div>
-                      </div>
-                      <div className="font-bold text-slate-900">
-                        ₹{(it.quantity * it.unit_price).toFixed(2)}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 text-slate-500">Total Purchase: ₹{Number(selectedOrder.total_amount ?? selectedOrder.grand_total ?? 0).toFixed(2)}</div>
-                )}
+            {/* Line Items with Full Fulfillment Cards */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">
+                  Order Line Items & Provisioned Assets ({selectedOrder.items?.length || 1})
+                </span>
+                <span className="text-[11px] text-indigo-600 font-semibold">
+                  Click 'Edit Credentials / Keys' on any item to update
+                </span>
               </div>
+
+              {(selectedOrder.items && selectedOrder.items.length > 0) ? (
+                selectedOrder.items.map((it: any) => (
+                  <div key={it.id} className="space-y-2">
+                    <FulfillmentCard
+                      item={it}
+                      isAdmin={true}
+                      onEditClick={() => openEditFulfillment(it)}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 bg-slate-50 rounded-2xl text-slate-500 text-center">
+                  Total Purchase: ₹{Number(selectedOrder.total_amount ?? selectedOrder.grand_total ?? 0).toFixed(2)}
+                </div>
+              )}
             </div>
 
             {/* Totals Breakdown */}
@@ -341,6 +413,265 @@ export default function AdminOrders() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT FULFILLMENT & CREDENTIALS MODAL */}
+      {editingItem && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[92vh] overflow-y-auto text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Fulfillment & Credentials
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Update software keys, access credentials, shipping details, or download assets
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (selectedOrder) {
+                  updateFulfillmentMutation.mutate({
+                    orderId: selectedOrder.id,
+                    payload: {
+                      item_id: editingItem.id,
+                      ...fulfillmentForm,
+                    }
+                  });
+                }
+              }}
+              className="space-y-4"
+            >
+              {/* Product Info header */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">{editingItem.name || 'Purchased Item'}</div>
+                  <div className="text-[11px] text-slate-400">Item ID: {editingItem.id}</div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                  {editingItem.product_type || 'software_license'}
+                </span>
+              </div>
+
+              {/* Software License Credentials Section */}
+              <div className="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-900 text-xs flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-indigo-600" /> Software License & Portal Access
+                  </span>
+                  <button
+                    type="button"
+                    onClick={generateLicenseKey}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs inline-flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3 h-3" /> Auto-Gen Key
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">License Key (Unique Customer Key)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ABCD-1234-EFGH-5678"
+                    value={fulfillmentForm.license_key}
+                    onChange={e => setFulfillmentForm(f => ({ ...f, license_key: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-bold text-indigo-700"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Software Download / App Link</label>
+                    <input
+                      type="url"
+                      placeholder="https://download.software.com/installer.exe"
+                      value={fulfillmentForm.software_url}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, software_url: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Cloud / Login Portal URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://app.software.com/login"
+                      value={fulfillmentForm.login_portal_url}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, login_portal_url: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Login Username / Email</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. client@example.com"
+                      value={fulfillmentForm.login_username}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, login_username: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Temporary Password</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SecurePass#2026"
+                      value={fulfillmentForm.login_password}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, login_password: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">License Expiration Date</label>
+                    <input
+                      type="date"
+                      value={fulfillmentForm.expires_at}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, expires_at: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Validity Term (Days)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={fulfillmentForm.validity_days}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, validity_days: parseInt(e.target.value) || 365 }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Setup Instructions / Access Note</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Instructions for user on activation or license registration..."
+                    value={fulfillmentForm.access_instructions}
+                    onChange={e => setFulfillmentForm(f => ({ ...f, access_instructions: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Physical Delivery Details */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-indigo-600" /> Physical Shipment & Tracking (If Applicable)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Courier Partner</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Blue Dart, Delhivery"
+                      value={fulfillmentForm.courier}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, courier: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Tracking Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TRK-892348"
+                      value={fulfillmentForm.tracking_number}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, tracking_number: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Shipping Status</label>
+                    <select
+                      value={fulfillmentForm.shipping_status}
+                      onChange={e => setFulfillmentForm(f => ({ ...f, shipping_status: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="pending">Pending Dispatch</option>
+                      <option value="packed">Packed</option>
+                      <option value="shipped">In Transit (Shipped)</option>
+                      <option value="out_for_delivery">Out For Delivery</option>
+                      <option value="delivered">Delivered</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Digital Asset Download & Live Preview */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Download Asset URL (Digital Files)</label>
+                  <input
+                    type="url"
+                    placeholder="https://assets.mysite.com/release.zip"
+                    value={fulfillmentForm.download_url}
+                    onChange={e => setFulfillmentForm(f => ({ ...f, download_url: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Live Interactive Demo URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://demo.app.com"
+                    value={fulfillmentForm.live_preview_url}
+                    onChange={e => setFulfillmentForm(f => ({ ...f, live_preview_url: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateFulfillmentMutation.isPending}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  {updateFulfillmentMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  Save & Update Fulfillment
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

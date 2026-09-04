@@ -47,6 +47,49 @@ class OrderService
                 $totalResellerAmount += ($resellerPrice * $quantity);
                 $totalCustomerAmount += $itemSubtotal;
 
+                // Build fulfillment metadata
+                $productMeta = is_array($product->metadata) ? $product->metadata : (json_decode($product->metadata, true) ?: []);
+                $itemMeta = [
+                    'product_type' => $product->type ?? 'digital',
+                    'live_preview_url' => $productMeta['live_preview_url'] ?? '',
+                ];
+
+                if ($product->type === 'software_license') {
+                    $licenseKeys = [];
+                    for ($k = 0; $k < $quantity; $k++) {
+                        $licenseKeys[] = strtoupper(Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4));
+                    }
+                    $validityDays = (int) ($productMeta['validity_days'] ?? 365);
+                    $itemMeta['license_key'] = implode(', ', $licenseKeys);
+                    $itemMeta['license_keys'] = $licenseKeys;
+                    $itemMeta['software_url'] = $productMeta['software_url'] ?? $productMeta['download_url'] ?? 'https://download.infiniforge.cloud';
+                    $itemMeta['login_portal_url'] = $productMeta['login_portal_url'] ?? $productMeta['software_url'] ?? 'https://app.infiniforge.cloud';
+                    $itemMeta['login_username'] = $user->email;
+                    $itemMeta['login_password'] = 'LicPass@' . rand(1000, 9999);
+                    $itemMeta['access_instructions'] = $productMeta['access_instructions'] ?? 'Log in to your software portal using your email and temporary password, then enter your license key to activate.';
+                    $itemMeta['validity_days'] = $validityDays;
+                    $itemMeta['activated_at'] = now()->toISOString();
+                    $itemMeta['expires_at'] = now()->addDays($validityDays)->toISOString();
+                    $itemMeta['max_devices'] = $productMeta['activation_limit'] ?? '3 Devices';
+                } elseif ($product->type === 'physical') {
+                    $courier = $productMeta['courier'] ?? 'BlueDart Express';
+                    $deliveryDays = (int) ($productMeta['delivery_days'] ?? 4);
+                    $itemMeta['is_shippable'] = true;
+                    $itemMeta['shipping_status'] = 'processing';
+                    $itemMeta['courier'] = $courier;
+                    $itemMeta['tracking_number'] = 'TRK-' . strtoupper(Str::random(10));
+                    $itemMeta['delivery_days'] = $deliveryDays;
+                    $itemMeta['estimated_delivery'] = now()->addDays($deliveryDays)->format('d M Y');
+                    $itemMeta['weight'] = $product->weight ?? $productMeta['weight'] ?? '0.5 kg';
+                } elseif ($product->type === 'digital') {
+                    $itemMeta['is_downloadable'] = true;
+                    $itemMeta['download_url'] = $productMeta['download_url'] ?? 'https://resell.infiniforge.cloud/downloads/asset-pkg.zip';
+                    $itemMeta['file_size'] = $productMeta['file_size'] ?? '45 MB';
+                    $itemMeta['file_version'] = $productMeta['file_version'] ?? 'v2.1.0';
+                    $itemMeta['download_limit'] = (int) ($productMeta['download_limit'] ?? 10);
+                    $itemMeta['downloads_used'] = 0;
+                }
+
                 $orderItems[] = [
                     'id' => (string) Str::uuid(),
                     'orderable_type' => Product::class,
@@ -60,6 +103,7 @@ class OrderService
                     'customer_price_at_purchase' => $customerPrice,
                     'final_price_at_purchase' => $itemSubtotal,
                     'currency' => $product->currency ?? 'INR',
+                    'metadata' => json_encode($itemMeta),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];

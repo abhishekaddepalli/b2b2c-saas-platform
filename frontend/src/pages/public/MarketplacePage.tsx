@@ -4,7 +4,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Package, Server, Search, Star, Heart, ArrowUpDown,
   Filter, ShoppingCart, Zap, Check, AlertCircle,
-  Loader2, ShieldCheck, IndianRupee, Sparkles, X, CheckCircle2, User
+  Loader2, ShieldCheck, IndianRupee, Sparkles, X, CheckCircle2, User,
+  ExternalLink, Key, Truck, Download, Box, Globe
 } from 'lucide-react';
 import { marketplaceApi, resellerApi, ordersApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -367,11 +368,26 @@ export default function MarketplacePage() {
                           </div>
 
                           <div className="p-5 space-y-2.5">
-                            <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center justify-between text-xs flex-wrap gap-1">
                               <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{categoryName}</span>
-                              <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px]">
-                                <Star className="w-3 h-3 fill-current" /> 4.9
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {p.type === 'physical' || (p as any).is_shippable ? (
+                                  <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 inline-flex items-center gap-1">
+                                    <Truck className="w-2.5 h-2.5" /> Physical
+                                  </span>
+                                ) : p.type === 'digital' ? (
+                                  <span className="text-[10px] font-bold text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded border border-cyan-500/30 inline-flex items-center gap-1">
+                                    <Download className="w-2.5 h-2.5" /> Digital
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-indigo-300 bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/30 inline-flex items-center gap-1">
+                                    <Key className="w-2.5 h-2.5" /> License Key
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-0.5 text-amber-400 font-bold text-[11px]">
+                                  <Star className="w-3 h-3 fill-current" /> 4.9
+                                </span>
+                              </div>
                             </div>
 
                             <h3 className="font-bold text-white text-base leading-snug group-hover:text-indigo-400 transition-colors line-clamp-1">
@@ -386,6 +402,19 @@ export default function MarketplacePage() {
 
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={p.pricing} role={role} />
+
+                          {(p as any).metadata?.live_preview_url && (
+                            <a
+                              href={(p as any).metadata.live_preview_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full py-1.5 px-2 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-bold text-[11px] rounded-xl border border-indigo-500/30 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Live Preview / Demo</span>
+                            </a>
+                          )}
 
                           {isReseller ? (
                             <div className="grid grid-cols-2 gap-2">
@@ -475,11 +504,22 @@ export default function MarketplacePage() {
                           </div>
 
                           <div className="p-5 space-y-2.5">
-                            <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center justify-between text-xs flex-wrap gap-1">
                               <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">{categoryName}</span>
-                              <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px]">
-                                <Star className="w-3 h-3 fill-current" /> 5.0
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {(s as any).metadata?.architecture_type === 'bundle' ? (
+                                  <span className="text-[10px] font-bold text-violet-300 bg-violet-500/20 px-1.5 py-0.5 rounded border border-violet-500/30 inline-flex items-center gap-1">
+                                    <Box className="w-2.5 h-2.5" /> SaaS Suite
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 inline-flex items-center gap-1">
+                                    <Server className="w-2.5 h-2.5" /> Cloud App
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-0.5 text-amber-400 font-bold text-[11px]">
+                                  <Star className="w-3 h-3 fill-current" /> 5.0
+                                </span>
+                              </div>
                             </div>
 
                             <h3 className="font-bold text-white text-base leading-snug group-hover:text-indigo-400 transition-colors line-clamp-1">
@@ -489,11 +529,39 @@ export default function MarketplacePage() {
                             <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                               {s.short_description || s.full_description}
                             </p>
+
+                            {Array.isArray((s as any).metadata?.bundled_apps) && (s as any).metadata.bundled_apps.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-1">
+                                {(s as any).metadata.bundled_apps.slice(0, 3).map((app: string, idx: number) => (
+                                  <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300">
+                                    ✓ {app}
+                                  </span>
+                                ))}
+                                {(s as any).metadata.bundled_apps.length > 3 && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-400">
+                                    +{(s as any).metadata.bundled_apps.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </Link>
 
                         <div className="p-5 pt-0 space-y-3">
                           <PriceDisplay pricing={(s as any).pricing ?? s.plans?.[0]?.pricing} role={role} />
+
+                          {(s as any).metadata?.live_preview_url && (
+                            <a
+                              href={(s as any).metadata.live_preview_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full py-1.5 px-2 bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 font-bold text-[11px] rounded-xl border border-violet-500/30 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Live Interactive Demo</span>
+                            </a>
+                          )}
 
                           {isReseller ? (
                             <div className="grid grid-cols-2 gap-2">

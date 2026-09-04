@@ -7,6 +7,7 @@ import {
   User, Tag, ArrowUpRight
 } from 'lucide-react';
 import { resellerApi } from '../../api';
+import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -235,7 +236,7 @@ export default function ResellerOrders() {
       {/* ORDER DETAILS MODAL */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto text-xs">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400">Order Invoice Summary</span>
@@ -259,22 +260,24 @@ export default function ResellerOrders() {
               <div className="text-slate-500 text-[11px]">Placed on: {new Date(selectedOrder.placed_at || selectedOrder.created_at || Date.now()).toLocaleString('en-IN')}</div>
             </div>
 
-            {/* Order Items */}
-            <div className="space-y-2">
-              <div className="font-bold text-slate-900">Provisioned Line Items:</div>
-              <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                {(selectedOrder.items || [{ name: 'Cloud Software License', quantity: 1, unit_price: selectedOrder.total_amount }]).map((it: any, idx: number) => (
-                  <div key={idx} className="p-3 flex items-center justify-between bg-white">
-                    <div>
-                      <div className="font-bold text-slate-800">{it.name || 'Digital Catalog Product'}</div>
-                      <div className="text-[11px] text-slate-400">Qty: {it.quantity || 1} • Unit Price: ₹{Number(it.unit_price || 0).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div className="font-bold text-slate-900">
-                      ₹{(Number(it.unit_price || 0) * (it.quantity || 1)).toLocaleString('en-IN')}
-                    </div>
-                  </div>
-                ))}
+            {/* Order Items with Fulfillment Card */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">Provisioned Licenses & Assets ({selectedOrder.items?.length || 1}):</span>
+                <span className="text-[10px] text-indigo-600 font-semibold">Active credentials & license keys for client</span>
               </div>
+
+              {(selectedOrder.items && selectedOrder.items.length > 0) ? (
+                selectedOrder.items.map((it: any) => (
+                  <div key={it.id || it.name} className="space-y-2">
+                    <FulfillmentCard item={it} />
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-500 text-center">
+                  Total Order Value: ₹{Number(selectedOrder.total_amount ?? 0).toLocaleString('en-IN')}
+                </div>
+              )}
             </div>
 
             {/* Financial Summary */}

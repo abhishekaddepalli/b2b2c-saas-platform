@@ -4,7 +4,7 @@ import {
   Package, Plus, Search, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, X, Edit3, Trash2,
   Sparkles, Layers, ArrowUpRight, Image as ImageIcon,
-  LogIn
+  LogIn, Truck, Key, Download, Globe, Lock, ExternalLink, Eye
 } from 'lucide-react';
 import { adminApi } from '../../api';
 import type { Product } from '../../types';
@@ -35,7 +35,7 @@ export default function AdminProducts() {
     name: '',
     slug: '',
     sku: '',
-    type: 'digital',
+    type: 'license',
     status: 'active',
     visibility: 'public',
     short_description: '',
@@ -45,6 +45,30 @@ export default function AdminProducts() {
     reseller_price: 349,
     customer_price: 599,
     image_url: '',
+    live_preview_url: '',
+
+    // Physical fields
+    weight: '0.5',
+    dimensions: '15 x 10 x 5 cm',
+    courier: 'BlueDart Express',
+    delivery_days: 4,
+    shipping_charge: 0,
+    warehouse_location: 'Central Fulfillment Hub, Mumbai',
+
+    // Digital fields
+    download_url: '',
+    file_size: '50 MB',
+    file_version: 'v1.0.0',
+    download_limit: 10,
+
+    // Software license fields
+    software_url: '',
+    login_portal_url: '',
+    login_username: '',
+    login_password: '',
+    access_instructions: '',
+    validity_days: 365,
+    activation_limit: '3 Devices / 1 Domain',
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -108,12 +132,15 @@ export default function AdminProducts() {
     setEditingProduct(p);
     const price = (p as any).prices?.[0];
     const img = (p as any).images?.[0]?.path || '';
+    const meta = typeof p.metadata === 'object' && p.metadata !== null
+      ? p.metadata
+      : (typeof p.metadata === 'string' ? JSON.parse(p.metadata || '{}') : {});
 
     setForm({
       name: p.name,
       slug: p.slug,
       sku: p.sku || '',
-      type: p.type || 'digital',
+      type: p.type || 'license',
       status: p.status || 'active',
       visibility: p.visibility || 'public',
       short_description: p.short_description || '',
@@ -123,6 +150,30 @@ export default function AdminProducts() {
       reseller_price: price?.reseller_price || 0,
       customer_price: price?.customer_price || 0,
       image_url: img,
+      live_preview_url: meta.live_preview_url || '',
+
+      // Physical
+      weight: p.weight || meta.weight || '0.5',
+      dimensions: meta.dimensions || '15 x 10 x 5 cm',
+      courier: meta.courier || 'BlueDart Express',
+      delivery_days: meta.delivery_days || 4,
+      shipping_charge: meta.shipping_charge || 0,
+      warehouse_location: meta.warehouse_location || 'Central Fulfillment Hub, Mumbai',
+
+      // Digital
+      download_url: meta.download_url || '',
+      file_size: meta.file_size || '50 MB',
+      file_version: meta.file_version || 'v1.0.0',
+      download_limit: meta.download_limit || 10,
+
+      // Software License
+      software_url: meta.software_url || '',
+      login_portal_url: meta.login_portal_url || '',
+      login_username: meta.login_username || '',
+      login_password: meta.login_password || '',
+      access_instructions: meta.access_instructions || '',
+      validity_days: meta.validity_days || 365,
+      activation_limit: meta.activation_limit || '3 Devices / 1 Domain',
     });
     setErrorMsg('');
   };
@@ -423,10 +474,35 @@ export default function AdminProducts() {
               onSubmit={(e) => {
                 e.preventDefault();
                 setErrorMsg('');
+                const payload = {
+                  ...form,
+                  metadata: {
+                    live_preview_url: form.live_preview_url,
+                    // Physical
+                    dimensions: form.dimensions,
+                    courier: form.courier,
+                    delivery_days: form.delivery_days,
+                    shipping_charge: form.shipping_charge,
+                    warehouse_location: form.warehouse_location,
+                    // Digital
+                    download_url: form.download_url,
+                    file_size: form.file_size,
+                    file_version: form.file_version,
+                    download_limit: form.download_limit,
+                    // Software License
+                    software_url: form.software_url,
+                    login_portal_url: form.login_portal_url,
+                    login_username: form.login_username,
+                    login_password: form.login_password,
+                    access_instructions: form.access_instructions,
+                    validity_days: form.validity_days,
+                    activation_limit: form.activation_limit,
+                  }
+                };
                 if (editingProduct) {
-                  updateMutation.mutate({ id: editingProduct.id, payload: form });
+                  updateMutation.mutate({ id: editingProduct.id, payload });
                 } else {
-                  createMutation.mutate(form);
+                  createMutation.mutate(payload);
                 }
               }}
               className="space-y-4 text-xs"
@@ -522,9 +598,9 @@ export default function AdminProducts() {
                     onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   >
-                    <option value="digital">Digital Product</option>
-                    <option value="license">Software License Key</option>
-                    <option value="physical">Physical Product</option>
+                    <option value="license">Software License Key (Auto-Gen Key)</option>
+                    <option value="digital">Digital Product (Downloadable)</option>
+                    <option value="physical">Physical Product (Shippable)</option>
                   </select>
                 </div>
 
@@ -552,6 +628,232 @@ export default function AdminProducts() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* Live Preview / Demo URL */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-indigo-600" /> Interactive Live Preview / Demo URL
+                  </span>
+                  <span className="text-[10px] text-slate-400">Shown in Marketplace as "Live Preview"</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://demo.example.com"
+                  value={form.live_preview_url}
+                  onChange={e => setForm(f => ({ ...f, live_preview_url: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                />
+              </div>
+
+              {/* CONDITIONAL SECTION 1: PHYSICAL PRODUCT */}
+              {form.type === 'physical' && (
+                <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                    <span className="font-bold text-emerald-900 flex items-center gap-1.5 text-xs">
+                      <Truck className="w-4 h-4 text-emerald-600" /> Physical Product & Shipping Configuration
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                      Shippable Asset
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Courier / Shipping Partner</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. BlueDart, Delhivery, DTDC"
+                        value={form.courier}
+                        onChange={e => setForm(f => ({ ...f, courier: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Estimated Delivery (Days)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 4"
+                        value={form.delivery_days}
+                        onChange={e => setForm(f => ({ ...f, delivery_days: parseInt(e.target.value) || 4 }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Item Weight (kg)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 0.5 kg"
+                        value={form.weight}
+                        onChange={e => setForm(f => ({ ...f, weight: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Package Dimensions</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 15 x 10 x 5 cm"
+                        value={form.dimensions}
+                        onChange={e => setForm(f => ({ ...f, dimensions: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div className="col-span-full">
+                      <label className="block font-semibold text-slate-700 mb-1">Warehouse / Inventory Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Central Fulfillment Hub, Mumbai"
+                        value={form.warehouse_location}
+                        onChange={e => setForm(f => ({ ...f, warehouse_location: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONDITIONAL SECTION 2: DIGITAL DOWNLOAD PRODUCT */}
+              {form.type === 'digital' && (
+                <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-sky-200/60 pb-2">
+                    <span className="font-bold text-sky-900 flex items-center gap-1.5 text-xs">
+                      <Download className="w-4 h-4 text-sky-600" /> Digital Product & File Delivery
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-sky-100 text-sky-800">
+                      Downloadable File
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="col-span-full">
+                      <label className="block font-semibold text-slate-700 mb-1">Download Asset File URL *</label>
+                      <input
+                        type="url"
+                        placeholder="https://assets.example.com/downloads/setup.zip"
+                        value={form.download_url}
+                        onChange={e => setForm(f => ({ ...f, download_url: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">File Size</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 50 MB"
+                        value={form.file_size}
+                        onChange={e => setForm(f => ({ ...f, file_size: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Current Version</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. v1.0.0"
+                        value={form.file_version}
+                        onChange={e => setForm(f => ({ ...f, file_version: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Max Download Attempts</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 10"
+                        value={form.download_limit}
+                        onChange={e => setForm(f => ({ ...f, download_limit: parseInt(e.target.value) || 10 }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONDITIONAL SECTION 3: SOFTWARE LICENSE PRODUCT */}
+              {(form.type === 'license' || form.type === 'software_license') && (
+                <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-indigo-200/60 pb-2">
+                    <span className="font-bold text-indigo-900 flex items-center gap-1.5 text-xs">
+                      <Key className="w-4 h-4 text-indigo-600" /> Software License Key & Login Credentials
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-100 text-indigo-800">
+                      Auto-Gen Key + Manual Override
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 bg-white/80 rounded-xl border border-indigo-100 text-[11px] text-indigo-900">
+                    💡 <strong>Automated Delivery:</strong> On purchase, a unique license key (e.g. <code>ABCD-1234-EFGH-5678</code>) and temporary login password are automatically generated and displayed in the user/reseller panel. You can manually edit or update credentials anytime in Orders!
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Software Download / Portal Link</label>
+                      <input
+                        type="url"
+                        placeholder="https://download.mysoftware.com"
+                        value={form.software_url}
+                        onChange={e => setForm(f => ({ ...f, software_url: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Client Login Portal URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://app.mysoftware.com/login"
+                        value={form.login_portal_url}
+                        onChange={e => setForm(f => ({ ...f, login_portal_url: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">License Term (Validity Days)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 365"
+                        value={form.validity_days}
+                        onChange={e => setForm(f => ({ ...f, validity_days: parseInt(e.target.value) || 365 }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Activation Limit</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 3 Devices / 1 Domain"
+                        value={form.activation_limit}
+                        onChange={e => setForm(f => ({ ...f, activation_limit: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="col-span-full">
+                      <label className="block font-semibold text-slate-700 mb-1">Activation & Setup Instructions</label>
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Install the software, launch it, navigate to Help > Enter License Key, and paste your license key."
+                        value={form.access_instructions}
+                        onChange={e => setForm(f => ({ ...f, access_instructions: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Pricing Section */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">

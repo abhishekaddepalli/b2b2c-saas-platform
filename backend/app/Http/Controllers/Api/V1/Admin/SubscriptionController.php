@@ -56,4 +56,39 @@ class SubscriptionController extends Controller
 
         return response()->json(['message' => 'Subscription cancelled.', 'data' => $sub]);
     }
+
+    public function updateAccess(Request $request, string $id): JsonResponse
+    {
+        $sub = Subscription::findOrFail($id);
+
+        $existingMeta = is_array($sub->metadata) ? $sub->metadata : (json_decode($sub->metadata, true) ?: []);
+
+        $fieldsToUpdate = [
+            'service_type' => $request->service_type,
+            'bundled_apps' => $request->bundled_apps,
+            'access_url' => $request->access_url,
+            'portal_url' => $request->portal_url,
+            'username' => $request->username,
+            'password' => $request->password,
+            'instructions' => $request->instructions,
+            'admin_notes' => $request->admin_notes,
+            'live_preview_url' => $request->live_preview_url,
+        ];
+
+        foreach ($fieldsToUpdate as $key => $val) {
+            if (!is_null($val)) {
+                $existingMeta[$key] = $val;
+            }
+        }
+
+        $sub->update([
+            'metadata' => $existingMeta,
+            'current_period_end' => $request->current_period_end ?: $sub->current_period_end,
+        ]);
+
+        return response()->json([
+            'message' => 'Cloud service credentials & bundled app access updated successfully.',
+            'data' => $sub->fresh(['customer', 'servicePlan']),
+        ]);
+    }
 }
