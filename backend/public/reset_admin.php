@@ -333,8 +333,9 @@ if (isset($_GET['git_sync'])) {
             'orders_count' => \App\Models\Order::count(),
             'invoices_count' => \App\Models\Invoice::withoutTenantScope()->count(),
             'profit_records_count' => \Illuminate\Support\Facades\DB::table('profit_records')->count(),
-            'jay_orders' => \App\Models\Order::whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->with('items')->get(),
-            'jay_spend' => (float) \App\Models\Order::whereHas('customer', function($q){ $q->where('email', 'like', '%jay%'); })->where('payment_status', 'paid')->sum('grand_total'),
+            'all_users' => \App\Models\User::select('id', 'name', 'email', 'current_organization_id')->get(),
+            'first_order' => \App\Models\Order::with(['customer', 'items'])->first(),
+            'first_sub' => \App\Models\Subscription::withoutTenantScope()->with(['customer'])->first(),
         ];
     } catch (\Throwable $e) {
         $stats['error'] = $e->getMessage();
