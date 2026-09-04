@@ -175,6 +175,41 @@ export default function AdminAuditLogs() {
         </div>
       </div>
 
+      {/* Quick Filter Category Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">Quick Filter:</span>
+        {[
+          { label: 'All Events', val: '' },
+          { label: '💰 Wallet & Financials', val: 'wallet' },
+          { label: '📦 Orders & Invoices', val: 'order' },
+          { label: '⚡ Cloud & Subscriptions', val: 'subscription' },
+          { label: '🏢 Resellers & Orgs', val: 'organization' },
+          { label: '👤 Users & Accounts', val: 'user' },
+        ].map(pill => (
+          <button
+            key={pill.val}
+            type="button"
+            onClick={() => { setActionFilter(pill.val); setPage(1); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              actionFilter === pill.val
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {pill.label}
+          </button>
+        ))}
+        {(search || actionFilter) && (
+          <button
+            type="button"
+            onClick={() => { setSearch(''); setActionFilter(''); setPage(1); }}
+            className="text-xs font-bold text-rose-600 hover:text-rose-700 ml-auto inline-flex items-center gap-1 cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" /> Clear Filters
+          </button>
+        )}
+      </div>
+
       {/* Audit Log Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         {isLoading ? (

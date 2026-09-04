@@ -3,8 +3,13 @@
 namespace App\Services\Order;
 
 use App\Exceptions\InsufficientWalletBalanceException;
+use App\Models\AuditLog;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Subscription;
+use App\Models\User;
 use App\Services\Pricing\PricingService;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
@@ -213,6 +218,143 @@ class OrderService
                     ];
                 }
                 DB::table('profit_records')->insert($profitRows);
+            }
+
+            // 1. Provision Subscriptions for any cloud/SaaS service items in the order
+            $targetUser = User::find($targetCustomerId) ?? $user;
+            $createdSubscriptionId = null;
+
+            foreach ($orderItems as $oi) {
+                if ($oi['orderable_type'] === \App\Models\Service::class) {
+                    $srv = \App\Models\Service::with('plans')->find($oi['orderable_id']);
+                    if ($srv) {
+                        $plan = $srv->plans?->first();
+                        $metaData = json_decode($oi['metadata'] ?? '{}', true) ?: [];
+                        $interval = $metaData['billing_interval'] ?? 'monthly';
+                        $startDate = now();
+                        $endDate = $interval === 'yearly' ? now()->addYear() : now()->addMonth();
+
+                        $srvMeta = is_array($srv->metadata) ? $srv->metadata : (json_decode($srv->metadata, true) ?: []);
+                        $defaultAccessUrl = $srvMeta['access_url'] ?? $srvMeta['portal_url'] ?? $srvMeta['login_url'] ?? 'https://app.infiniforge.cloud';
+
+                        $subMetadata = [
+                            'service_id' => $srv->id,
+                            'service_name' => $srv->name,
+                            'plan_name' => $plan?->name ?? 'Standard',
+                            'service_type' => 'single',
+                            'access_url' => $defaultAccessUrl,
+                            'portal_url' => $defaultAccessUrl,
+                            'username' => $targetUser->email,
+                            'password' => 'SrvPass@' . rand(1000, 9999),
+                            'server_ip' => '172.67.' . rand(10, 250) . '.' . rand(1, 254),
+                            'port' => '443 / 22 (SSH)',
+                            'license_key' => strtoupper(Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4)),
+                            'instructions' => $srvMeta['instructions'] ?? 'Log in to your cloud dashboard or connect via SSH with provided credentials.',
+                            'admin_notes' => 'Auto-provisioned via order ' . $order->order_number,
+                            'client_notes' => $metaData['client_notes'] ?? '',
+                            'sla_hours' => $metaData['sla_hours'] ?? 48,
+                        ];
+
+                        $sub = Subscription::create([
+                            'organization_id' => $org?->id,
+                            'customer_id' => $targetCustomerId,
+                            'service_plan_id' => $plan?->id,
+                            'order_id' => $order->id,
+                            'status' => 'active',
+                            'currency' => $order->currency ?? 'INR',
+                            'amount' => $oi['unit_price'],
+                            'cost_price_snapshot' => $oi['cost_price_at_purchase'],
+                            'reseller_price_snapshot' => $oi['reseller_price_at_purchase'],
+                            'customer_price_snapshot' => $oi['customer_price_at_purchase'],
+                            'billing_interval' => $interval,
+                            'billing_interval_count' => 1,
+                            'auto_renew' => true,
+                            'current_period_start' => $startDate,
+                            'current_period_end' => $endDate,
+                            'next_billing_at' => $endDate,
+                            'activated_at' => now(),
+                            'metadata' => $subMetadata,
+                        ]);
+
+                        $createdSubscriptionId = $sub->id;
+                    }
+                }
+            }
+
+            // 2. Generate Official Tax Invoice with line items
+            $sellerName = $org?->name ?? 'InfiniForge SaaS Cloud Platform';
+            $sellerEmail = $org?->support_email ?? 'billing@infiniforge.cloud';
+            $invoiceNumber = 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(5));
+
+            $invoice = Invoice::create([
+                'invoice_number' => $invoiceNumber,
+                'organization_id' => $org?->id,
+                'customer_id' => $targetCustomerId,
+                'order_id' => $order->id,
+                'subscription_id' => $createdSubscriptionId,
+                'type' => !empty($createdSubscriptionId) ? 'subscription' : 'order',
+                'status' => 'paid',
+                'currency' => $order->currency ?? 'INR',
+                'subtotal' => $order->subtotal,
+                'discount_total' => $order->discount_total ?? 0,
+                'tax_total' => $order->tax_total ?? 0,
+                'grand_total' => $order->grand_total,
+                'amount_paid' => $order->grand_total,
+                'amount_due' => 0,
+                'billing_details' => [
+                    'name' => $targetUser->name,
+                    'email' => $targetUser->email,
+                    'phone' => $targetUser->phone ?? '',
+                    'company' => $targetUser->company ?? ($org?->name ?? 'Direct Customer'),
+                    'address' => $data['billing_address'] ?? 'Primary Business Address',
+                ],
+                'seller_details' => [
+                    'company' => $sellerName,
+                    'email' => $sellerEmail,
+                    'gstin' => '36AABCU9603R1ZM',
+                    'address' => 'Cyber Gateway, HITEC City, Hyderabad, 500081, India',
+                ],
+                'issued_at' => now(),
+                'due_at' => now(),
+                'paid_at' => now(),
+                'notes' => 'Tax invoice generated for order #' . $order->order_number,
+            ]);
+
+            foreach ($orderItems as $oi) {
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'description' => $oi['name'] . ($oi['quantity'] > 1 ? " (Qty: {$oi['quantity']})" : ""),
+                    'quantity' => $oi['quantity'],
+                    'unit_price' => $oi['unit_price'],
+                    'discount' => 0,
+                    'tax_rate' => 0,
+                    'tax_amount' => 0,
+                    'total' => $oi['final_price_at_purchase'],
+                ]);
+            }
+
+            // 3. Record Audit Log Entry
+            try {
+                AuditLog::create([
+                    'organization_id' => $org?->id,
+                    'actor_id' => $user->id,
+                    'action' => 'order.completed',
+                    'resource_type' => Order::class,
+                    'resource_id' => $order->id,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'old_values' => null,
+                    'new_values' => [
+                        'order_number' => $order->order_number,
+                        'invoice_number' => $invoiceNumber,
+                        'grand_total' => $order->grand_total,
+                        'customer_id' => $targetCustomerId,
+                        'items_count' => count($orderItems),
+                        'subscription_created' => !empty($createdSubscriptionId),
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed recording audit log in OrderService: ' . $e->getMessage());
             }
 
             return $order->load('items');

@@ -104,7 +104,7 @@ export default function ServiceDetailPage() {
     try {
       setOrdering(true);
       const payload: any = {
-        items: [{ service_id: service.id, interval: selectedInterval, client_notes: clientBrief }],
+        items: [{ service_id: service.id, interval: selectedInterval, quantity: 1, client_notes: clientBrief }],
         payment_method: 'wallet',
       };
       if (isReseller() && selectedCustomerId) {

@@ -11,15 +11,19 @@ class SubscriptionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Subscription::where('customer_id', $request->user()->id)
-            ->with(['servicePlan']);
+        $query = Subscription::withoutTenantScope()
+            ->where('customer_id', $request->user()->id)
+            ->with(['servicePlan.service', 'organization:id,name,brand_name,support_email', 'order:id,order_number,status,payment_status']);
 
         if ($request->filled('search')) {
             $s = trim($request->search);
             $query->where(function ($q) use ($s) {
                 $q->where('id', 'like', "%{$s}%")
                   ->orWhereHas('servicePlan', function ($pq) use ($s) {
-                      $pq->where('name', 'like', "%{$s}%");
+                      $pq->where('name', 'like', "%{$s}%")
+                         ->orWhereHas('service', function ($sq) use ($s) {
+                             $sq->where('name', 'like', "%{$s}%");
+                         });
                   });
             });
         }
@@ -28,16 +32,17 @@ class SubscriptionController extends Controller
             $query->where('status', $request->status);
         }
 
-        $subscriptions = $query->latest('created_at')->paginate($request->per_page ?? 20);
+        $subscriptions = $query->latest('created_at')->paginate($request->per_page ?? 25);
 
         return response()->json($subscriptions);
     }
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $sub = Subscription::where('customer_id', $request->user()->id)
+        $sub = Subscription::withoutTenantScope()
+            ->where('customer_id', $request->user()->id)
             ->where('id', $id)
-            ->with(['servicePlan'])
+            ->with(['servicePlan.service', 'organization:id,name,brand_name,support_email', 'order:id,order_number,status,payment_status'])
             ->firstOrFail();
 
         return response()->json(['data' => $sub]);
@@ -45,7 +50,8 @@ class SubscriptionController extends Controller
 
     public function cancel(Request $request, string $id): JsonResponse
     {
-        $sub = Subscription::where('customer_id', $request->user()->id)
+        $sub = Subscription::withoutTenantScope()
+            ->where('customer_id', $request->user()->id)
             ->where('id', $id)
             ->firstOrFail();
 
@@ -55,6 +61,6 @@ class SubscriptionController extends Controller
             'cancellation_reason' => $request->reason ?? 'Cancelled by customer',
         ]);
 
-        return response()->json(['message' => 'Subscription cancelled.']);
+        return response()->json(['message' => 'Subscription cancelled successfully.']);
     }
 }

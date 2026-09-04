@@ -86,6 +86,27 @@ class SubscriptionController extends Controller
             'current_period_end' => $request->current_period_end ?: $sub->current_period_end,
         ]);
 
+        try {
+            \App\Models\AuditLog::create([
+                'organization_id' => $sub->organization_id,
+                'actor_id' => $request->user()?->id,
+                'action' => 'subscription.credentials_updated',
+                'resource_type' => Subscription::class,
+                'resource_id' => $sub->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'old_values' => ['portal_url' => $existingMeta['portal_url'] ?? null],
+                'new_values' => [
+                    'portal_url' => $request->portal_url ?? $request->access_url,
+                    'username' => $request->username,
+                    'instructions' => $request->instructions,
+                    'current_period_end' => $request->current_period_end,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed logging audit in updateAccess: ' . $e->getMessage());
+        }
+
         return response()->json([
             'message' => 'Cloud service credentials & bundled app access updated successfully.',
             'data' => $sub->fresh(['customer', 'servicePlan']),

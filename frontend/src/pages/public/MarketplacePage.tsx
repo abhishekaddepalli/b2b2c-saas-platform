@@ -207,7 +207,7 @@ export default function MarketplacePage() {
         });
       } else {
         const payload: any = {
-          items: [{ service_id: activeModalItem.item.id, interval: orderInterval }],
+          items: [{ service_id: activeModalItem.item.id, interval: orderInterval, quantity: 1 }],
           payment_method: 'wallet',
         };
         if (orderCustomerId) payload.customer_id = orderCustomerId;
@@ -391,15 +391,19 @@ export default function MarketplacePage() {
         {/* Filters & Sorting */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1">
-            {(['all', 'products', 'services'] as const).map(t => (
+            {[
+              { id: 'all', label: 'All Catalog' },
+              { id: 'products', label: '🛍️ Ecommerce Products' },
+              { id: 'services', label: '⚡ SaaS & Cloud Services' },
+            ].map(t => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all capitalize cursor-pointer ${
-                  tab === t ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                key={t.id}
+                onClick={() => setTab(t.id as any)}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  tab === t.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {t}
+                {t.label}
               </button>
             ))}
           </div>
@@ -745,6 +749,21 @@ export default function MarketplacePage() {
                               <span>Live Interactive Demo</span>
                             </a>
                           )}
+
+                          {isReseller && (() => {
+                            const sPricing = (s as any).pricing ?? (s.plans?.[0] as any)?.pricing;
+                            const retail = Number(sPricing?.customer_price ?? (s.plans?.[0] as any)?.price ?? 1999);
+                            const wholesale = Number(sPricing?.reseller_price ?? Math.round(retail * 0.75));
+                            const margin = Math.max(0, retail - wholesale);
+                            const marginPct = retail > 0 ? Math.round((margin / retail) * 100) : 25;
+
+                            return (
+                              <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
+                                <span>Reseller Margin:</span>
+                                <span className="font-mono text-emerald-400">+₹{margin.toLocaleString('en-IN')}/mo ({marginPct}%)</span>
+                              </div>
+                            );
+                          })()}
 
                           {isReseller ? (
                             <div className="grid grid-cols-2 gap-2">

@@ -56,13 +56,22 @@ class OrderController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['nullable', 'string'],
             'items.*.service_id' => ['nullable', 'string'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1'],
             'items.*.customer_price' => ['nullable', 'numeric'],
             'customer_id' => ['nullable', 'string'],
             'payment_method' => ['nullable', 'string'],
         ]);
 
-        $order = $this->orderService->createOrder($request->user(), $request->all());
+        $payload = $request->all();
+        if (isset($payload['items']) && is_array($payload['items'])) {
+            foreach ($payload['items'] as &$item) {
+                if (empty($item['quantity'])) {
+                    $item['quantity'] = 1;
+                }
+            }
+        }
+
+        $order = $this->orderService->createOrder($request->user(), $payload);
 
         return response()->json([
             'message' => 'Reseller order placed successfully.',

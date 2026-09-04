@@ -121,6 +121,14 @@ export const subscriptionsApi = {
   cancel: (id: string) => api.post(`/subscriptions/${id}/cancel`),
 };
 
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+export const invoicesApi = {
+  list: (params?: object) => api.get('/invoices', { params }),
+  get: (id: string) => api.get(`/invoices/${id}`),
+  download: (id: string) => api.get(`/invoices/${id}/download`),
+};
+
 // ─── Reseller ─────────────────────────────────────────────────────────────────
 
 export const resellerApi = {

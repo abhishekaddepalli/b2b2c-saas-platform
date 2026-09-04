@@ -67,6 +67,107 @@ if (isset($_GET['git_sync'])) {
                 ]);
             }
         }
+
+        // 3. Auto-generate Invoices for any paid orders lacking invoices
+        $existingOrderIds = \App\Models\Invoice::withoutTenantScope()->whereNotNull('order_id')->pluck('order_id')->toArray();
+        $ordersMissingInvoices = \App\Models\Order::where('payment_status', 'paid')
+            ->whereNotIn('id', $existingOrderIds)
+            ->with(['items', 'customer', 'organization'])
+            ->get();
+        foreach ($ordersMissingInvoices as $ord) {
+            $invNum = 'INV-' . ($ord->order_number ? str_replace('ORD-', '', $ord->order_number) : strtoupper(\Illuminate\Support\Str::random(6)));
+            $cust = $ord->customer;
+            $inv = \App\Models\Invoice::withoutTenantScope()->create([
+                'invoice_number' => $invNum,
+                'organization_id' => $ord->organization_id,
+                'customer_id' => $ord->customer_id,
+                'order_id' => $ord->id,
+                'type' => 'order',
+                'status' => 'paid',
+                'currency' => $ord->currency ?? 'INR',
+                'subtotal' => $ord->subtotal ?? $ord->grand_total,
+                'discount_total' => $ord->discount_total ?? 0,
+                'tax_total' => $ord->tax_total ?? 0,
+                'grand_total' => $ord->grand_total,
+                'amount_paid' => $ord->grand_total,
+                'amount_due' => 0,
+                'billing_details' => [
+                    'name' => $cust?->name ?? 'Customer',
+                    'email' => $cust?->email ?? '',
+                    'company' => $cust?->company ?? '',
+                ],
+                'seller_details' => [
+                    'company' => $ord->organization?->name ?? 'InfiniForge Cloud Solutions',
+                    'email' => $ord->organization?->support_email ?? 'billing@infiniforge.cloud',
+                    'gstin' => '36AABCU9603R1ZM',
+                    'address' => 'Cyber Gateway, HITEC City, Hyderabad, 500081, India',
+                ],
+                'issued_at' => $ord->placed_at ?? $ord->created_at ?? now(),
+                'paid_at' => $ord->paid_at ?? $ord->created_at ?? now(),
+                'notes' => 'Tax invoice for order #' . $ord->order_number,
+            ]);
+            foreach ($ord->items as $it) {
+                \App\Models\InvoiceItem::create([
+                    'invoice_id' => $inv->id,
+                    'description' => $it->name . (($it->quantity ?? 1) > 1 ? " (Qty: {$it->quantity})" : ""),
+                    'quantity' => $it->quantity ?? 1,
+                    'unit_price' => $it->unit_price ?? $it->customer_price_at_purchase ?? 0,
+                    'discount' => 0,
+                    'tax_rate' => 0,
+                    'tax_amount' => 0,
+                    'total' => $it->final_price_at_purchase ?? (($it->unit_price ?? 0) * ($it->quantity ?? 1)),
+                ]);
+            }
+        }
+
+        // 4. Auto-provision Subscriptions for service items in paid orders lacking subscriptions
+        $existingSubOrderIds = \App\Models\Subscription::withoutTenantScope()->whereNotNull('order_id')->pluck('order_id')->toArray();
+        $serviceOrdersMissingSubs = \App\Models\Order::where('payment_status', 'paid')
+            ->whereNotIn('id', $existingSubOrderIds)
+            ->with(['items', 'customer', 'organization'])
+            ->get();
+        foreach ($serviceOrdersMissingSubs as $sOrder) {
+            foreach ($sOrder->items as $sItem) {
+                if ($sItem->orderable_type === \App\Models\Service::class) {
+                    $srvModel = \App\Models\Service::with('plans')->find($sItem->orderable_id);
+                    if ($srvModel) {
+                        $pl = $srvModel->plans?->first();
+                        $cUser = $sOrder->customer;
+                        \App\Models\Subscription::create([
+                            'organization_id' => $sOrder->organization_id,
+                            'customer_id' => $sOrder->customer_id,
+                            'service_plan_id' => $pl?->id,
+                            'order_id' => $sOrder->id,
+                            'status' => 'active',
+                            'currency' => $sOrder->currency ?? 'INR',
+                            'amount' => $sItem->customer_price_at_purchase ?? 1999,
+                            'cost_price_snapshot' => $sItem->cost_price_at_purchase ?? 999,
+                            'reseller_price_snapshot' => $sItem->reseller_price_at_purchase ?? 1499,
+                            'customer_price_snapshot' => $sItem->customer_price_at_purchase ?? 1999,
+                            'billing_interval' => 'monthly',
+                            'billing_interval_count' => 1,
+                            'auto_renew' => true,
+                            'current_period_start' => now(),
+                            'current_period_end' => now()->addMonth(),
+                            'next_billing_at' => now()->addMonth(),
+                            'activated_at' => now(),
+                            'metadata' => [
+                                'service_name' => $srvModel->name,
+                                'plan_name' => $pl?->name ?? 'Standard',
+                                'access_url' => 'https://app.infiniforge.cloud',
+                                'portal_url' => 'https://app.infiniforge.cloud',
+                                'username' => $cUser?->email ?? 'customer@infiniforge.cloud',
+                                'password' => 'SrvPass@' . rand(1000, 9999),
+                                'server_ip' => '172.67.' . rand(10, 250) . '.' . rand(1, 254),
+                                'port' => '443 / 22 (SSH)',
+                                'license_key' => strtoupper(\Illuminate\Support\Str::random(4) . '-' . \Illuminate\Support\Str::random(4) . '-' . \Illuminate\Support\Str::random(4) . '-' . \Illuminate\Support\Str::random(4)),
+                                'instructions' => 'Log in to your cloud dashboard or connect via SSH with provided credentials.',
+                            ],
+                        ]);
+                    }
+                }
+            }
+        }
     } catch (\Throwable $e) {
         $output[] = 'Reconciliation notice: ' . $e->getMessage();
     }

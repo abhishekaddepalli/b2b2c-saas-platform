@@ -192,6 +192,23 @@ class OrganizationController extends Controller
                     'created_by' => $request->user()?->id,
                     'created_at' => now(),
                 ]);
+
+                \App\Models\AuditLog::create([
+                    'organization_id' => $org->id,
+                    'actor_id' => $request->user()?->id,
+                    'action' => 'wallet.adjusted',
+                    'resource_type' => \App\Models\Organization::class,
+                    'resource_id' => $org->id,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'old_values' => ['available_balance' => $balanceBefore],
+                    'new_values' => [
+                        'available_balance' => $balanceAfter,
+                        'adjustment' => $adj,
+                        'note' => $request->wallet_note ?: ('Admin balance adjustment (' . ($adj >= 0 ? '+Credit' : '-Debit') . ')'),
+                        'organization_name' => $org->name,
+                    ],
+                ]);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Failed writing wallet transaction in org update: ' . $e->getMessage());
             }
