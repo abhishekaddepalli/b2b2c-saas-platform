@@ -107,13 +107,18 @@ function LoadingScreen() {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
+import { CartProvider } from './contexts/CartContext';
+import CartDrawer from './components/cart/CartDrawer';
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <ImpersonationBanner />
-          <Routes>
+          <CartProvider>
+            <ImpersonationBanner />
+            <CartDrawer />
+            <Routes>
             {/* Public */}
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
@@ -198,6 +203,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </CartProvider>
         </AuthProvider>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />

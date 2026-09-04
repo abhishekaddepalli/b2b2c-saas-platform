@@ -32,29 +32,61 @@ class OrderService
             $totalCostAmount = 0;
 
             foreach ($itemsData as $item) {
-                $product = Product::findOrFail($item['product_id']);
                 $quantity = max(1, (int) ($item['quantity'] ?? 1));
+                $isService = !empty($item['service_id']);
+                $product = null;
+                $service = null;
 
-                $pricingResult = $this->pricingService->resolve($product, $user);
+                if ($isService) {
+                    $service = \App\Models\Service::with('plans')->findOrFail($item['service_id']);
+                    $basePrice = (float) ($service->plans?->first()?->price ?? 1999);
+                    $interval = $item['interval'] ?? 'monthly';
+                    if ($interval === 'yearly') $basePrice = round($basePrice * 10);
 
-                $costPrice = $pricingResult->costPrice ?? 0;
-                $resellerPrice = $pricingResult->resellerPrice ?? 0;
-                $customerPrice = $pricingResult->customerPrice ?? 0;
+                    $customerPrice = isset($item['customer_price']) ? (float) $item['customer_price'] : (isset($item['unit_price']) ? (float) $item['unit_price'] : $basePrice);
+                    $resellerPrice = round($customerPrice * 0.75, 2);
+                    $costPrice = round($customerPrice * 0.50, 2);
+
+                    $productMeta = is_array($service->metadata) ? $service->metadata : (json_decode($service->metadata, true) ?: []);
+                    $itemMeta = [
+                        'product_type' => 'service',
+                        'billing_interval' => $interval,
+                        'sla_hours' => $productMeta['sla_hours'] ?? 48,
+                        'revisions' => 3,
+                        'service_status' => 'provisioning',
+                        'client_notes' => $item['client_notes'] ?? '',
+                    ];
+                    $itemName = $service->name;
+                    $itemSku = 'SRV-' . strtoupper(\Illuminate\Support\Str::random(6));
+                    $orderableType = \App\Models\Service::class;
+                    $orderableId = $service->id;
+                    $currency = 'INR';
+                } else {
+                    $product = Product::findOrFail($item['product_id']);
+                    $pricingResult = $this->pricingService->resolve($product, $user);
+
+                    $costPrice = $pricingResult->costPrice ?? 0;
+                    $resellerPrice = $pricingResult->resellerPrice ?? 0;
+                    $customerPrice = isset($item['customer_price']) ? (float) $item['customer_price'] : ($pricingResult->customerPrice ?? 0);
+
+                    $productMeta = is_array($product->metadata) ? $product->metadata : (json_decode($product->metadata, true) ?: []);
+                    $itemMeta = [
+                        'product_type' => $product->type ?? 'digital',
+                        'live_preview_url' => $productMeta['live_preview_url'] ?? '',
+                    ];
+                    $itemName = $product->name;
+                    $itemSku = $product->sku;
+                    $orderableType = Product::class;
+                    $orderableId = $product->id;
+                    $currency = $product->currency ?? 'INR';
+                }
 
                 $itemSubtotal = $customerPrice * $quantity;
-
                 $totalCostAmount += ($costPrice * $quantity);
                 $totalResellerAmount += ($resellerPrice * $quantity);
                 $totalCustomerAmount += $itemSubtotal;
 
-                // Build fulfillment metadata
-                $productMeta = is_array($product->metadata) ? $product->metadata : (json_decode($product->metadata, true) ?: []);
-                $itemMeta = [
-                    'product_type' => $product->type ?? 'digital',
-                    'live_preview_url' => $productMeta['live_preview_url'] ?? '',
-                ];
-
-                if ($product->type === 'software_license') {
+                if ($product && $product->type === 'software_license') {
                     $licenseKeys = [];
                     for ($k = 0; $k < $quantity; $k++) {
                         $licenseKeys[] = strtoupper(Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4));
@@ -71,7 +103,7 @@ class OrderService
                     $itemMeta['activated_at'] = now()->toISOString();
                     $itemMeta['expires_at'] = now()->addDays($validityDays)->toISOString();
                     $itemMeta['max_devices'] = $productMeta['activation_limit'] ?? '3 Devices';
-                } elseif ($product->type === 'physical') {
+                } elseif ($product && $product->type === 'physical') {
                     $courier = $productMeta['courier'] ?? 'BlueDart Express';
                     $deliveryDays = (int) ($productMeta['delivery_days'] ?? 4);
                     $itemMeta['is_shippable'] = true;
@@ -81,7 +113,7 @@ class OrderService
                     $itemMeta['delivery_days'] = $deliveryDays;
                     $itemMeta['estimated_delivery'] = now()->addDays($deliveryDays)->format('d M Y');
                     $itemMeta['weight'] = $product->weight ?? $productMeta['weight'] ?? '0.5 kg';
-                } elseif ($product->type === 'digital') {
+                } elseif ($product && $product->type === 'digital') {
                     $itemMeta['is_downloadable'] = true;
                     $itemMeta['download_url'] = $productMeta['download_url'] ?? 'https://resell.infiniforge.cloud/downloads/asset-pkg.zip';
                     $itemMeta['file_size'] = $productMeta['file_size'] ?? '45 MB';
@@ -92,17 +124,17 @@ class OrderService
 
                 $orderItems[] = [
                     'id' => (string) Str::uuid(),
-                    'orderable_type' => Product::class,
-                    'orderable_id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
+                    'orderable_type' => $orderableType,
+                    'orderable_id' => $orderableId,
+                    'name' => $itemName,
+                    'sku' => $itemSku,
                     'quantity' => $quantity,
                     'unit_price' => $customerPrice,
                     'cost_price_at_purchase' => $costPrice,
                     'reseller_price_at_purchase' => $resellerPrice,
                     'customer_price_at_purchase' => $customerPrice,
                     'final_price_at_purchase' => $itemSubtotal,
-                    'currency' => $product->currency ?? 'INR',
+                    'currency' => $currency,
                     'metadata' => json_encode($itemMeta),
                     'created_at' => now(),
                     'updated_at' => now(),

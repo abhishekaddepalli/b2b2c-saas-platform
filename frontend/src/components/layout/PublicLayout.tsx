@@ -1,14 +1,16 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Zap, ArrowRight, Mail, Phone, MessageSquare, MapPin
+  Zap, ArrowRight, Mail, Phone, MessageSquare, MapPin, ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import { adminApi } from '../../api';
 import LiveChatWidget from '../chat/LiveChatWidget';
 
 export default function PublicLayout() {
   const { isAuthenticated, isSuperAdmin, isReseller } = useAuth();
+  const { openCart, itemCount } = useCart();
   const location = useLocation();
 
   // Fetch Public SiteCMS Data
@@ -83,6 +85,20 @@ export default function PublicLayout() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={openCart}
+              className="relative p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition-all cursor-pointer"
+              title="View Cart"
+            >
+              <ShoppingBag className="w-4 h-4 text-indigo-400" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-tr from-emerald-500 to-indigo-600 text-[10px] font-black text-white flex items-center justify-center shadow-md animate-in zoom-in">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+
             {isAuthenticated ? (
               <Link
                 to={dashboardPath}

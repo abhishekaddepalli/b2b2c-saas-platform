@@ -201,4 +201,107 @@ class ReportController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    public function productPerformance(Request $request): JsonResponse
+    {
+        $startDate = $request->filled('start_date') ? now()->parse($request->start_date)->startOfDay() : now()->subDays(30)->startOfDay();
+        $endDate = $request->filled('end_date') ? now()->parse($request->end_date)->endOfDay() : now()->endOfDay();
+
+        $items = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereBetween('orders.created_at', [$startDate, $endDate])
+            ->where('orders.status', '!=', 'cancelled')
+            ->select(
+                'order_items.name',
+                'order_items.orderable_type',
+                'order_items.quantity',
+                'order_items.final_price_at_purchase',
+                'order_items.cost_price_at_purchase',
+                'order_items.metadata'
+            )
+            ->get();
+
+        $totalRevenue = 0;
+        $totalUnits = 0;
+        $typeBreakdown = [
+            'software' => ['revenue' => 0, 'units' => 0, 'label' => 'Software Licenses'],
+            'physical' => ['revenue' => 0, 'units' => 0, 'label' => 'Physical Products'],
+            'digital' => ['revenue' => 0, 'units' => 0, 'label' => 'Digital Assets'],
+            'service' => ['revenue' => 0, 'units' => 0, 'label' => 'Cloud Services'],
+        ];
+
+        $productSales = [];
+
+        foreach ($items as $it) {
+            $rev = (float) $it->final_price_at_purchase;
+            $qty = (int) $it->quantity;
+            $totalRevenue += $rev;
+            $totalUnits += $qty;
+
+            $meta = json_decode($it->metadata ?? '{}', true) ?: [];
+            $type = $meta['product_type'] ?? (str_contains($it->orderable_type, 'Service') ? 'service' : 'software');
+            if (!isset($typeBreakdown[$type])) {
+                $type = 'software';
+            }
+
+            $typeBreakdown[$type]['revenue'] += $rev;
+            $typeBreakdown[$type]['units'] += $qty;
+
+            if (!isset($productSales[$it->name])) {
+                $productSales[$it->name] = [
+                    'name' => $it->name,
+                    'type' => $type,
+                    'units' => 0,
+                    'revenue' => 0,
+                ];
+            }
+            $productSales[$it->name]['units'] += $qty;
+            $productSales[$it->name]['revenue'] += $rev;
+        }
+
+        // Sort top products
+        usort($productSales, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+        $topProducts = array_slice($productSales, 0, 5);
+
+        return response()->json([
+            'data' => [
+                'total_revenue' => $totalRevenue,
+                'total_units' => $totalUnits,
+                'type_breakdown' => $typeBreakdown,
+                'top_products' => $topProducts,
+            ]
+        ]);
+    }
+
+    public function orderAnalytics(Request $request): JsonResponse
+    {
+        $statusCounts = Order::select('status', DB::raw('count(*) as count'), DB::raw('sum(grand_total) as revenue'))
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status')
+            ->toArray();
+
+        $totalOrders = Order::count();
+        $totalGross = (float) Order::where('status', '!=', 'cancelled')->sum('grand_total');
+        $avgOrderValue = $totalOrders > 0 ? round($totalGross / $totalOrders, 2) : 0;
+        $completedCount = ($statusCounts['completed']['count'] ?? 0) + ($statusCounts['paid']['count'] ?? 0);
+        $fulfillmentRate = $totalOrders > 0 ? round(($completedCount / $totalOrders) * 100, 1) : 100;
+
+        return response()->json([
+            'data' => [
+                'total_orders' => $totalOrders,
+                'total_revenue' => $totalGross,
+                'average_order_value' => $avgOrderValue,
+                'fulfillment_rate' => $fulfillmentRate,
+                'status_breakdown' => [
+                    'completed' => $statusCounts['completed']['count'] ?? 0,
+                    'paid' => $statusCounts['paid']['count'] ?? 0,
+                    'processing' => $statusCounts['processing']['count'] ?? 0,
+                    'pending' => $statusCounts['pending']['count'] ?? 0,
+                    'cancelled' => $statusCounts['cancelled']['count'] ?? 0,
+                    'refunded' => $statusCounts['refunded']['count'] ?? 0,
+                ]
+            ]
+        ]);
+    }
 }

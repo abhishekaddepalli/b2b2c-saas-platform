@@ -54,10 +54,12 @@ class OrderController extends Controller
     {
         $request->validate([
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.product_id' => ['nullable', 'string'],
+            'items.*.service_id' => ['nullable', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'customer_id' => ['nullable', 'exists:users,id'],
-            'payment_method' => ['nullable', 'string', 'in:wallet,gateway,card'],
+            'items.*.customer_price' => ['nullable', 'numeric'],
+            'customer_id' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'string'],
         ]);
 
         $order = $this->orderService->createOrder($request->user(), $request->all());

@@ -13,8 +13,10 @@ import {
   Users,
   Zap,
   Layers,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import LiveChatWidget from '../chat/LiveChatWidget';
 import { useQuery } from '@tanstack/react-query';
 import { resellerApi } from '../../api';
@@ -35,6 +37,7 @@ const navItems = [
 
 export default function ResellerLayout() {
   const { user, logout } = useAuth();
+  const { openCart, itemCount } = useCart();
   const navigate = useNavigate();
 
   const { data: walletData } = useQuery({
@@ -121,8 +124,21 @@ export default function ResellerLayout() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shrink-0">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shrink-0 gap-3">
           <div className="flex-1" />
+          <button
+            type="button"
+            onClick={openCart}
+            className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            title="View Cart"
+          >
+            <ShoppingBag className="w-4 h-4 text-violet-600" />
+            {itemCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-violet-600 text-[10px] font-black text-white flex items-center justify-center shadow-sm">
+                {itemCount}
+              </span>
+            )}
+          </button>
           <Link
             to="/reseller/marketplace"
             className="text-sm text-violet-600 hover:text-violet-700 font-medium px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-colors flex items-center gap-1.5"

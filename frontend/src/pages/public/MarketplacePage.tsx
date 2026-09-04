@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { marketplaceApi, resellerApi, ordersApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import type {
   Product, Service, AdminPricing, ResellerPricing, CustomerPricing
 } from '../../types';
@@ -65,6 +66,7 @@ function PriceDisplay({ pricing, role }: { pricing?: any; role: string }) {
 
 export default function MarketplacePage() {
   const { user } = useAuth();
+  const { addItem } = useCart();
   const role = user?.pricing_role ?? 'customer';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -584,13 +586,37 @@ export default function MarketplacePage() {
                               </button>
                             </div>
                           ) : (
-                            <Link
-                              to={`${basePath}/products/${p.slug}`}
-                              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span>Order License</span>
-                            </Link>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const pAny = p as any;
+                                  const pPrice = Number(pAny.pricing?.customer_price ?? pAny.retail_price ?? pAny.pricing?.price ?? 999);
+                                  addItem({
+                                    itemId: p.id,
+                                    slug: p.slug,
+                                    name: p.name,
+                                    type: (p.type as any) || 'digital',
+                                    price: pPrice,
+                                    originalPrice: Math.round(pPrice * 1.35),
+                                    image: p.images?.[0]?.path,
+                                    quantity: 1,
+                                    category: categoryName,
+                                    sku: p.sku,
+                                  });
+                                }}
+                                className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5 text-indigo-400" />
+                                <span>Add to Cart</span>
+                              </button>
+                              <Link
+                                to={`${basePath}/products/${p.slug}`}
+                                className="py-2.5 px-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1 text-center"
+                              >
+                                <span>View & Buy</span>
+                              </Link>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -740,13 +766,37 @@ export default function MarketplacePage() {
                               </button>
                             </div>
                           ) : (
-                            <Link
-                              to={`${basePath}/services/${s.slug}`}
-                              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                            >
-                              <Zap className="w-3.5 h-3.5" />
-                              <span>Subscribe Service</span>
-                            </Link>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sAny = s as any;
+                                  const sPrice = Number(sAny.plans?.[0]?.pricing?.price ?? sAny.plans?.[0]?.price ?? sAny.price ?? 1999);
+                                  addItem({
+                                    itemId: s.id,
+                                    slug: s.slug,
+                                    name: s.name,
+                                    type: 'service',
+                                    price: sPrice,
+                                    originalPrice: Math.round(sPrice * 1.3),
+                                    image: s.image_url || undefined,
+                                    quantity: 1,
+                                    interval: 'monthly',
+                                    category: getCategoryDisplayName(s, 'Recurring Service'),
+                                  });
+                                }}
+                                className="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5 text-violet-400" />
+                                <span>Add to Cart</span>
+                              </button>
+                              <Link
+                                to={`${basePath}/services/${s.slug}`}
+                                className="py-2.5 px-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1 text-center"
+                              >
+                                <span>Subscribe</span>
+                              </Link>
+                            </div>
                           )}
                         </div>
                       </div>

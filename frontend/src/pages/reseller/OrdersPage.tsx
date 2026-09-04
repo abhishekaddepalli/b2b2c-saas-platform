@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Package, Search, ShoppingBag, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, Eye, ExternalLink, X, Calendar, Clock,
-  User, Tag, ArrowUpRight
+  User, Tag, ArrowUpRight, Plus
 } from 'lucide-react';
 import { resellerApi } from '../../api';
 import FulfillmentCard from '../../components/fulfillment/FulfillmentCard';
+import ResellerManualOrderModal from '../../components/reseller/ResellerManualOrderModal';
 
 const statusColors: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -18,9 +19,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ResellerOrders() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showManualOrderModal, setShowManualOrderModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['reseller', 'orders', search, statusFilter],
@@ -51,14 +55,31 @@ export default function ResellerOrders() {
             Track customer orders, digital license provisioning, and reseller profit splits.
           </p>
         </div>
-        <Link
-          to="/reseller"
-          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0"
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>New Catalog Order</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowManualOrderModal(true)}
+            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Client Order</span>
+          </button>
+          <Link
+            to="/reseller/marketplace"
+            className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shrink-0"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Marketplace</span>
+          </Link>
+        </div>
       </div>
+
+      {successMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -368,6 +389,17 @@ export default function ResellerOrders() {
           </div>
         </div>
       )}
+
+      {/* Manual Client Order Modal */}
+      <ResellerManualOrderModal
+        isOpen={showManualOrderModal}
+        onClose={() => setShowManualOrderModal(false)}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['reseller', 'orders'] });
+          setSuccessMsg('Client order created and fulfilled successfully!');
+          setTimeout(() => setSuccessMsg(''), 5000);
+        }}
+      />
     </div>
   );
 }
