@@ -99,6 +99,7 @@ export default function ServiceDetailPage() {
   const basePrice = Number(service.plans?.[0]?.price ?? service.price ?? 1999);
   const multiplier = selectedInterval === 'yearly' ? 10 : 1;
   const currentPrice = basePrice * multiplier;
+  const serviceImageUrl = service.image_url || service.metadata?.image_url || (service.icon && (service.icon.startsWith('http') || service.icon.startsWith('/')) ? service.icon : null);
 
   return (
     <div className="w-full bg-slate-950 text-slate-100 rounded-3xl p-6 sm:p-10 space-y-8 border border-slate-800/80 shadow-2xl">
@@ -133,6 +134,20 @@ export default function ServiceDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Service Description */}
         <div className="lg:col-span-2 space-y-6">
+          {serviceImageUrl && (
+            <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-900/50 aspect-video max-h-72 w-full relative shadow-lg">
+              <img
+                src={serviceImageUrl}
+                alt={service.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).parentElement?.classList.add('hidden');
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+            </div>
+          )}
+
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-400/30">

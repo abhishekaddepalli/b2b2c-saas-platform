@@ -4,9 +4,11 @@ import {
   Package, Plus, Search, CheckCircle, ShieldAlert,
   Loader2, IndianRupee, X, Edit3, Trash2,
   Sparkles, Layers, ArrowUpRight, Image as ImageIcon,
-  LogIn, Truck, Key, Download, Globe, Lock, ExternalLink, Eye
+  LogIn, Truck, Key, Download, Globe, Lock, ExternalLink, Eye,
+  ShoppingBag, CheckSquare, Square, Check, FolderInput
 } from 'lucide-react';
 import { adminApi } from '../../api';
+import WooCommerceSyncModal from '../../components/integrations/WooCommerceSyncModal';
 import type { Product } from '../../types';
 
 const statusColors: Record<string, string> = {
@@ -32,6 +34,13 @@ export default function AdminProducts() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Bulk Selection & WooCommerce Sync
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showWcModal, setShowWcModal] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<'active' | 'draft' | 'archived'>('active');
+  const [bulkCategory, setBulkCategory] = useState<string>('');
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   const emptyForm = {
     name: '',
@@ -102,6 +111,55 @@ export default function AdminProducts() {
       setTimeout(() => setErrorMsg(''), 5000);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === products.length && products.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map(p => p.id)));
+    }
+  };
+
+  const handleBulkAction = async (action: 'delete' | 'update_status' | 'assign_category') => {
+    if (selectedIds.size === 0) return;
+    if (action === 'delete') {
+      const confirmed = window.confirm(`Are you sure you want to permanently delete ${selectedIds.size} selected products?`);
+      if (!confirmed) return;
+    }
+
+    try {
+      setIsBulkLoading(true);
+      const payload: any = {
+        action,
+        ids: Array.from(selectedIds),
+      };
+      if (action === 'update_status') payload.status = bulkStatus;
+      if (action === 'assign_category') payload.category_id = bulkCategory;
+
+      const res = await adminApi.bulkProducts(payload);
+      qc.invalidateQueries({ queryKey: ['admin', 'products'] });
+      setSelectedIds(new Set());
+      setSuccessMsg(res.data?.message || 'Bulk operation completed successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message || err?.message || 'Bulk operation failed.');
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setIsBulkLoading(false);
     }
   };
 
@@ -237,6 +295,15 @@ export default function AdminProducts() {
               <Sparkles className="w-4 h-4 text-amber-400" />
             )}
             <span>{isSyncing ? 'Syncing...' : 'Sync Infiniforge'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowWcModal(true)}
+            className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+            title="Import & Sync Products from WooCommerce REST API"
+          >
+            <ShoppingBag className="w-4 h-4 text-purple-200" />
+            <span>WooCommerce Sync</span>
           </button>
           <button
             type="button"
@@ -465,6 +532,20 @@ export default function AdminProducts() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold uppercase tracking-wider">
+                  <th className="px-4 py-3.5 w-10">
+                    <input
+                      type="checkbox"
+                      checked={products.length > 0 && selectedIds.size === products.length}
+                      ref={input => {
+                        if (input) {
+                          input.indeterminate = selectedIds.size > 0 && selectedIds.size < products.length;
+                        }
+                      }}
+                      onChange={handleSelectAll}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      title="Select all products"
+                    />
+                  </th>
                   <th className="px-4 py-3.5">Product & Visual Asset</th>
                   <th className="px-4 py-3.5">Type & SKU</th>
                   <th className="px-4 py-3.5">Cost Price</th>
@@ -476,11 +557,20 @@ export default function AdminProducts() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {products.map(p => {
+                  const isSelected = selectedIds.has(p.id);
                   const price = (p as any).prices?.[0];
                   const primaryImg = (p as any).images?.[0]?.path;
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={p.id} className={`hover:bg-slate-50/70 transition-colors ${isSelected ? 'bg-indigo-50/40' : ''}`}>
+                      <td className="px-4 py-3.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(p.id)}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           {primaryImg ? (
@@ -570,6 +660,92 @@ export default function AdminProducts() {
           </div>
         )}
       </div>
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-6 z-30 p-4 rounded-2xl bg-slate-900 text-white shadow-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs">
+              {selectedIds.size}
+            </div>
+            <div>
+              <div className="font-bold text-xs">
+                {selectedIds.size} {selectedIds.size === 1 ? 'Product' : 'Products'} Selected
+              </div>
+              <div className="text-[10px] text-slate-400">Perform bulk status change, category reassignment, or delete</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Status Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-700">
+              <span className="text-[10px] text-slate-400 uppercase font-bold">Status:</span>
+              <select
+                value={bulkStatus}
+                onChange={e => setBulkStatus(e.target.value as any)}
+                className="bg-slate-900 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs"
+              >
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => handleBulkAction('update_status')}
+                disabled={isBulkLoading}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
+
+            {/* Category Assign Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-700">
+              <span className="text-[10px] text-slate-400 uppercase font-bold">Category:</span>
+              <select
+                value={bulkCategory}
+                onChange={e => setBulkCategory(e.target.value)}
+                className="bg-slate-900 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs max-w-[130px] truncate"
+              >
+                <option value="">Choose...</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => handleBulkAction('assign_category')}
+                disabled={isBulkLoading || !bulkCategory}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Move
+              </button>
+            </div>
+
+            {/* Bulk Delete */}
+            <button
+              type="button"
+              onClick={() => handleBulkAction('delete')}
+              disabled={isBulkLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected</span>
+            </button>
+
+            {/* Deselect All */}
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* CREATE / EDIT PRODUCT MODAL */}
       {(showCreate || editingProduct) && (
@@ -1098,6 +1274,15 @@ export default function AdminProducts() {
           </div>
         </div>
       )}
+
+      {/* WooCommerce Sync Modal */}
+      <WooCommerceSyncModal
+        isOpen={showWcModal}
+        onClose={() => setShowWcModal(false)}
+        defaultImportAs="product"
+        categories={categories}
+        onSyncComplete={() => qc.invalidateQueries({ queryKey: ['admin', 'products'] })}
+      />
     </div>
   );
 }

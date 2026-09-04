@@ -5,15 +5,32 @@ import {
   Building2, Palette, Globe, Layers, Key, Loader2,
   IndianRupee, Sparkles, AlertCircle, RefreshCw, Bell,
   Mail, MessageSquare, Send, Bot, Cpu, Cloud, Radio,
-  Webhook, Zap, ShieldAlert, Lock, Copy, Check
+  Webhook, Zap, ShieldAlert, Lock, Copy, Check,
+  ShoppingBag, Phone, Sliders, ExternalLink, ArrowRight
 } from 'lucide-react';
 import { adminApi } from '../../api';
+import WooCommerceSyncModal from '../../components/integrations/WooCommerceSyncModal';
 
 export default function AdminSettings() {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'gateways' | 'auth_security' | 'alerts' | 'integrations' | 'branding' | 'general' | 'resellers'>('gateways');
+  const [activeTab, setActiveTab] = useState<
+    'gateways' | 'woocommerce' | 'twilio' | 'support_chat' | 'auth_security' | 'alerts' | 'integrations' | 'branding' | 'general' | 'resellers'
+  >('gateways');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // WooCommerce Sync Modal & Test state
+  const [showWcSyncModal, setShowWcSyncModal] = useState(false);
+  const [wcTesting, setWcTesting] = useState(false);
+  const [wcTestFeedback, setWcTestFeedback] = useState<{ success: boolean; message: string; env?: any } | null>(null);
+
+  // Twilio Test state
+  const [twilioTesting, setTwilioTesting] = useState(false);
+  const [twilioTestChannel, setTwilioTestChannel] = useState<'sms' | 'whatsapp'>('whatsapp');
+  const [twilioTestRecipient, setTwilioTestRecipient] = useState('+919876543210');
+  const [twilioTestMessage, setTwilioTestMessage] = useState('Hello from Infiniforge Cloud! Twilio integration is working! 🚀');
+  const [twilioTestFeedback, setTwilioTestFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'settings'],
@@ -140,6 +157,41 @@ export default function AdminSettings() {
     captcha_on_login: true,
     captcha_on_register: true,
     captcha_on_forgot_password: true,
+
+    // WooCommerce Integration
+    enable_woocommerce: false,
+    woocommerce_store_url: '',
+    woocommerce_consumer_key: '',
+    woocommerce_consumer_secret: '',
+    woocommerce_webhook_secret: '',
+    woocommerce_default_import_type: 'auto',
+    woocommerce_reseller_margin: 15,
+
+    // Twilio SMS & WhatsApp Dispatcher
+    enable_twilio: false,
+    twilio_account_sid: '',
+    twilio_auth_token: '',
+    twilio_phone_number: '',
+    twilio_whatsapp_number: '',
+    twilio_alert_orders_sms: true,
+    twilio_alert_orders_whatsapp: true,
+    twilio_alert_credentials_sms: true,
+    twilio_alert_credentials_whatsapp: true,
+    twilio_alert_otp_sms: false,
+
+    // Live Chat Widget & Support Desk
+    enable_chat_widget: true,
+    chat_widget_title: 'Infiniforge Live Support',
+    chat_widget_subtitle: 'Typically replies in under 5 minutes',
+    chat_widget_greeting: 'Hello! 👋 How can our cloud architecture team assist you today?',
+    chat_widget_primary_color: '#6366f1',
+    chat_widget_position: 'bottom_right',
+    chat_widget_whatsapp_number: '+919876543210',
+    chat_widget_agent_name: 'Alex (Cloud Specialist)',
+    chat_widget_agent_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    support_hours: '24/7 Mon - Sun',
+    support_sla_hours: '2 Hours',
+    support_ticketing_enabled: true,
   });
 
   useEffect(() => {
@@ -210,12 +262,15 @@ export default function AdminSettings() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 text-xs font-bold gap-2">
+      <div className="flex border-b border-slate-200 text-xs font-bold gap-2 overflow-x-auto pb-1">
         {[
           { id: 'gateways', label: 'Payment Gateways', icon: CreditCard },
+          { id: 'woocommerce', label: 'WooCommerce Sync', icon: ShoppingBag },
+          { id: 'twilio', label: 'Twilio SMS & WhatsApp', icon: Phone },
+          { id: 'support_chat', label: 'Live Chat & Support', icon: MessageSquare },
           { id: 'auth_security', label: 'Social Auth & CAPTCHA', icon: ShieldCheck },
           { id: 'alerts', label: 'Alerts & Notifications', icon: Bell },
-          { id: 'integrations', label: 'Ecosystem & AI Integrations', icon: Zap },
+          { id: 'integrations', label: 'Ecosystem & AI', icon: Zap },
           { id: 'branding', label: 'White-Label Branding', icon: Palette },
           { id: 'general', label: 'General & Currency', icon: Globe },
           { id: 'resellers', label: 'Reseller Governance', icon: Building2 },
@@ -465,7 +520,688 @@ export default function AdminSettings() {
             </div>
           )}
 
-          {/* TAB 2: BRANDING */}
+          {/* TAB 2: WOOCOMMERCE SYNC INTEGRATION */}
+          {activeTab === 'woocommerce' && (
+            <div className="space-y-5 text-xs">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-black">
+                      <ShoppingBag className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                        WooCommerce REST API Integration
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                          v3 REST
+                        </span>
+                      </h3>
+                      <p className="text-slate-500 text-xs">
+                        Synchronize WordPress / WooCommerce products, categories, digital items & SaaS services.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.enable_woocommerce}
+                        onChange={e => updateField('enable_woocommerce', e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <span className="ml-2.5 font-bold text-slate-700 text-xs">
+                        {form.enable_woocommerce ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* API Credentials */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">Store URL</label>
+                    <input
+                      type="url"
+                      value={form.woocommerce_store_url}
+                      onChange={e => updateField('woocommerce_store_url', e.target.value)}
+                      placeholder="https://your-wordpress-store.com"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Full URL of your WordPress installation with WooCommerce installed.</p>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Consumer Key</label>
+                    <input
+                      type="password"
+                      value={form.woocommerce_consumer_key}
+                      onChange={e => updateField('woocommerce_consumer_key', e.target.value)}
+                      placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Consumer Secret</label>
+                    <input
+                      type="password"
+                      value={form.woocommerce_consumer_secret}
+                      onChange={e => updateField('woocommerce_consumer_secret', e.target.value)}
+                      placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Webhook Secret (Optional)</label>
+                    <input
+                      type="password"
+                      value={form.woocommerce_webhook_secret}
+                      onChange={e => updateField('woocommerce_webhook_secret', e.target.value)}
+                      placeholder="webhook_secret_key"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Default Wholesale Reseller Margin (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="90"
+                      value={form.woocommerce_reseller_margin}
+                      onChange={e => updateField('woocommerce_reseller_margin', Number(e.target.value))}
+                      placeholder="15"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">Default Import Classification</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { id: 'auto', title: 'Auto-Detect', desc: 'Subscriptions/hosting → Services; others → Products' },
+                        { id: 'product', title: 'Products Catalog', desc: 'Always import as digital/physical goods' },
+                        { id: 'service', title: 'Services Catalog', desc: 'Always import as recurring cloud services' },
+                      ].map(mode => (
+                        <label
+                          key={mode.id}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                            form.woocommerce_default_import_type === mode.id
+                              ? 'border-purple-600 bg-purple-50/50 text-purple-900 shadow-xs'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="wc_import_type"
+                            value={mode.id}
+                            checked={form.woocommerce_default_import_type === mode.id}
+                            onChange={() => updateField('woocommerce_default_import_type', mode.id)}
+                            className="sr-only"
+                          />
+                          <div className="font-bold">{mode.title}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{mode.desc}</div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Connection Feedback */}
+                {wcTestFeedback && (
+                  <div
+                    className={`p-4 rounded-2xl flex items-center gap-3 animate-in fade-in ${
+                      wcTestFeedback.success
+                        ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border border-rose-200 text-rose-800'
+                    }`}
+                  >
+                    {wcTestFeedback.success ? (
+                      <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    )}
+                    <div>
+                      <div className="font-bold">{wcTestFeedback.message}</div>
+                      {wcTestFeedback.env && (
+                        <div className="text-[11px] text-emerald-700 mt-0.5">
+                          Host: {wcTestFeedback.env.site_title} • API: {wcTestFeedback.env.wc_version} • Currency: {wcTestFeedback.env.currency}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Action Buttons */}
+                <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setWcTesting(true);
+                        setWcTestFeedback(null);
+                        const res = await adminApi.woocommerceTest({
+                          store_url: form.woocommerce_store_url,
+                          consumer_key: form.woocommerce_consumer_key,
+                          consumer_secret: form.woocommerce_consumer_secret,
+                        });
+                        setWcTestFeedback({
+                          success: true,
+                          message: res.data?.message || 'WooCommerce API connection successful!',
+                          env: res.data?.environment,
+                        });
+                      } catch (err: any) {
+                        setWcTestFeedback({
+                          success: false,
+                          message: err?.response?.data?.message || err?.message || 'WooCommerce connection test failed.',
+                        });
+                      } finally {
+                        setWcTesting(false);
+                      }
+                    }}
+                    disabled={wcTesting || !form.woocommerce_store_url}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold transition-colors disabled:opacity-50"
+                  >
+                    {wcTesting ? <Loader2 className="w-4 h-4 animate-spin text-purple-600" /> : <RefreshCw className="w-4 h-4" />}
+                    <span>Test WooCommerce Connection</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowWcSyncModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-all shadow-md shadow-purple-600/20"
+                  >
+                    <Sparkles className="w-4 h-4 text-purple-200" />
+                    <span>Launch 1-Click Catalog Sync Modal</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: TWILIO SMS & WHATSAPP */}
+          {activeTab === 'twilio' && (
+            <div className="space-y-5 text-xs">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-black">
+                      <Phone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                        Twilio Communications Dispatcher
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+                          SMS & WhatsApp Business API
+                        </span>
+                      </h3>
+                      <p className="text-slate-500 text-xs">
+                        Dispatch instant automated order alerts, provisioning credentials, and OTP codes.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_twilio}
+                      onChange={e => updateField('enable_twilio', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                    <span className="ml-2.5 font-bold text-slate-700 text-xs">
+                      {form.enable_twilio ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* Credentials */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Twilio Account SID</label>
+                    <input
+                      type="password"
+                      value={form.twilio_account_sid}
+                      onChange={e => updateField('twilio_account_sid', e.target.value)}
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Twilio Auth Token</label>
+                    <input
+                      type="password"
+                      value={form.twilio_auth_token}
+                      onChange={e => updateField('twilio_auth_token', e.target.value)}
+                      placeholder="Your Twilio Auth Token"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Twilio Sender Phone Number (SMS)</label>
+                    <input
+                      type="text"
+                      value={form.twilio_phone_number}
+                      onChange={e => updateField('twilio_phone_number', e.target.value)}
+                      placeholder="+1234567890"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Twilio WhatsApp Sender Number</label>
+                    <input
+                      type="text"
+                      value={form.twilio_whatsapp_number}
+                      onChange={e => updateField('twilio_whatsapp_number', e.target.value)}
+                      placeholder="+14155238886 or whatsapp:+14155238886"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500 bg-slate-50/50 hover:bg-white focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Notification Triggers */}
+                <div className="pt-4 border-t border-slate-100 space-y-2">
+                  <h4 className="font-bold text-slate-800 text-xs">Automated Notification Rules</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.twilio_alert_orders_sms}
+                        onChange={e => updateField('twilio_alert_orders_sms', e.target.checked)}
+                        className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="font-semibold text-slate-700">Dispatch SMS on New Order / Purchase</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.twilio_alert_orders_whatsapp}
+                        onChange={e => updateField('twilio_alert_orders_whatsapp', e.target.checked)}
+                        className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="font-semibold text-slate-700">Dispatch WhatsApp on New Order / Purchase</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.twilio_alert_credentials_sms}
+                        onChange={e => updateField('twilio_alert_credentials_sms', e.target.checked)}
+                        className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="font-semibold text-slate-700">Send License Keys & Access via SMS</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.twilio_alert_credentials_whatsapp}
+                        onChange={e => updateField('twilio_alert_credentials_whatsapp', e.target.checked)}
+                        className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="font-semibold text-slate-700">Send License Keys & Access via WhatsApp</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Live Test Dispatcher */}
+                <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h4 className="font-bold text-xs flex items-center gap-2">
+                      <Send className="w-4 h-4 text-red-400" />
+                      Live Interactive Dispatch Test
+                    </h4>
+                    <span className="text-[10px] text-slate-400">Trigger test payload directly from console</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">Channel</label>
+                      <select
+                        value={twilioTestChannel}
+                        onChange={e => setTwilioTestChannel(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                      >
+                        <option value="whatsapp">Twilio WhatsApp</option>
+                        <option value="sms">Twilio Programmable SMS</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">Recipient Phone (+ Country Code)</label>
+                      <input
+                        type="text"
+                        value={twilioTestRecipient}
+                        onChange={e => setTwilioTestRecipient(e.target.value)}
+                        placeholder="+919876543210"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">Action</label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setTwilioTesting(true);
+                            setTwilioTestFeedback(null);
+                            const res = await adminApi.twilioTest({
+                              channel: twilioTestChannel,
+                              recipient: twilioTestRecipient,
+                              message: twilioTestMessage,
+                              account_sid: form.twilio_account_sid,
+                              auth_token: form.twilio_auth_token,
+                              phone_number: form.twilio_phone_number,
+                              whatsapp_number: form.twilio_whatsapp_number,
+                            });
+                            setTwilioTestFeedback({
+                              success: true,
+                              message: res.data?.message || 'Test message dispatched successfully!',
+                            });
+                          } catch (err: any) {
+                            setTwilioTestFeedback({
+                              success: false,
+                              message: err?.response?.data?.message || err?.message || 'Twilio test dispatch failed.',
+                            });
+                          } finally {
+                            setTwilioTesting(false);
+                          }
+                        }}
+                        disabled={twilioTesting || !twilioTestRecipient}
+                        className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-xl text-xs inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {twilioTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        <span>Send Test Dispatch</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">Message Preview</label>
+                    <input
+                      type="text"
+                      value={twilioTestMessage}
+                      onChange={e => setTwilioTestMessage(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+
+                  {twilioTestFeedback && (
+                    <div
+                      className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                        twilioTestFeedback.success
+                          ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
+                          : 'bg-rose-950/60 border border-rose-800 text-rose-300'
+                      }`}
+                    >
+                      {twilioTestFeedback.success ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      )}
+                      <span>{twilioTestFeedback.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: LIVE CHAT WIDGET & SUPPORT DESK */}
+          {activeTab === 'support_chat' && (
+            <div className="space-y-6 text-xs">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left 2 Cols: Settings */}
+                <div className="lg:col-span-2 space-y-5">
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                          <MessageSquare className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base">
+                            Global Live Chat Widget & Support Desk
+                          </h3>
+                          <p className="text-slate-500 text-xs">
+                            Embeddable client floating widget, WhatsApp handoff & multi-channel ticketing.
+                          </p>
+                        </div>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.enable_chat_widget}
+                          onChange={e => updateField('enable_chat_widget', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <span className="ml-2.5 font-bold text-slate-700 text-xs">
+                          {form.enable_chat_widget ? 'Active' : 'Disabled'}
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Widget Text & Branding */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Widget Header Title</label>
+                        <input
+                          type="text"
+                          value={form.chat_widget_title}
+                          onChange={e => updateField('chat_widget_title', e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Status Subtitle</label>
+                        <input
+                          type="text"
+                          value={form.chat_widget_subtitle}
+                          onChange={e => updateField('chat_widget_subtitle', e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block font-semibold text-slate-700 mb-1">Automated Greeting Message</label>
+                        <textarea
+                          rows={2}
+                          value={form.chat_widget_greeting}
+                          onChange={e => updateField('chat_widget_greeting', e.target.value)}
+                          className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Support WhatsApp Number</label>
+                        <input
+                          type="text"
+                          value={form.chat_widget_whatsapp_number}
+                          onChange={e => updateField('chat_widget_whatsapp_number', e.target.value)}
+                          placeholder="+919876543210"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Primary Brand Accent Color</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={form.chat_widget_primary_color}
+                            onChange={e => updateField('chat_widget_primary_color', e.target.value)}
+                            className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={form.chat_widget_primary_color}
+                            onChange={e => updateField('chat_widget_primary_color', e.target.value)}
+                            className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Corner Placement</label>
+                        <select
+                          value={form.chat_widget_position}
+                          onChange={e => updateField('chat_widget_position', e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs"
+                        >
+                          <option value="bottom_right">Bottom Right (Standard)</option>
+                          <option value="bottom_left">Bottom Left</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Support Operating Hours</label>
+                        <input
+                          type="text"
+                          value={form.support_hours}
+                          onChange={e => updateField('support_hours', e.target.value)}
+                          placeholder="24/7 Mon - Sun"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">SLA Target Time</label>
+                        <input
+                          type="text"
+                          value={form.support_sla_hours}
+                          onChange={e => updateField('support_sla_hours', e.target.value)}
+                          placeholder="2 Hours"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Agent Name & Title</label>
+                        <input
+                          type="text"
+                          value={form.chat_widget_agent_name}
+                          onChange={e => updateField('chat_widget_agent_name', e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block font-semibold text-slate-700 mb-1">Agent Avatar Image URL</label>
+                        <input
+                          type="url"
+                          value={form.chat_widget_agent_avatar}
+                          onChange={e => updateField('chat_widget_agent_avatar', e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Reseller White-label Embed Snippet */}
+                    <div className="pt-4 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                          <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
+                          White-Label Embed Snippet (External Websites & Portals)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const snippet = `<script src="https://resell.infiniforge.cloud/assets/live-chat.js" data-tenant="infiniforge" async></script>`;
+                            navigator.clipboard.writeText(snippet);
+                            setCopiedScript(true);
+                            setTimeout(() => setCopiedScript(false), 2500);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-700 font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          {copiedScript ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedScript ? 'Copied to Clipboard!' : 'Copy Script Tag'}</span>
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-slate-900 text-slate-200 rounded-xl text-[11px] font-mono overflow-x-auto select-all">
+                        {`<script src="https://resell.infiniforge.cloud/assets/live-chat.js" data-tenant="infiniforge" async></script>`}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 1 Col: Live Interactive Preview */}
+                <div className="space-y-3">
+                  <h4 className="font-black text-slate-900 text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    Live Interactive Preview
+                  </h4>
+                  <div className="bg-slate-950 text-white rounded-3xl border border-slate-800 p-4 shadow-xl flex flex-col justify-between h-[480px]">
+                    {/* Header */}
+                    <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={form.chat_widget_agent_avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt="Agent"
+                          className="w-8 h-8 rounded-full object-cover border border-indigo-500"
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-white">{form.chat_widget_title || 'Live Support'}</div>
+                          <div className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            {form.chat_widget_subtitle || 'Online'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="w-2 h-2 rounded-full bg-slate-700" />
+                    </div>
+
+                    {/* Chat Bubble Stream */}
+                    <div className="flex-1 py-4 space-y-3 overflow-y-auto">
+                      <div className="flex items-end gap-2">
+                        <img
+                          src={form.chat_widget_agent_avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt="Agent"
+                          className="w-5 h-5 rounded-full object-cover shrink-0 mb-1"
+                        />
+                        <div className="bg-slate-800/90 text-slate-100 rounded-2xl rounded-bl-xs p-3 text-xs border border-slate-700/60 max-w-[85%]">
+                          {form.chat_widget_greeting || 'Hello! How can we help?'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-end justify-end">
+                        <div
+                          style={{ backgroundColor: form.chat_widget_primary_color || '#6366f1' }}
+                          className="text-white rounded-2xl rounded-br-xs p-3 text-xs max-w-[80%]"
+                        >
+                          I have a question about the cloud reseller discount.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Channels & Input Preview */}
+                    <div className="space-y-2">
+                      <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400">WhatsApp: {form.chat_widget_whatsapp_number}</span>
+                        <span className="text-emerald-400 font-bold">Direct Handoff</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 text-xs flex items-center justify-between">
+                        <span>Type your inquiry...</span>
+                        <Send className="w-3.5 h-3.5 text-indigo-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: BRANDING */}
           {activeTab === 'branding' && (
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4 text-xs">
               <h3 className="font-bold text-slate-900 text-sm border-b border-slate-100 pb-3">
@@ -1442,6 +2178,13 @@ export default function AdminSettings() {
           </div>
         </form>
       )}
+
+      {/* WooCommerce Sync Modal */}
+      <WooCommerceSyncModal
+        isOpen={showWcSyncModal}
+        onClose={() => setShowWcSyncModal(false)}
+        defaultImportAs={form.woocommerce_default_import_type || 'auto'}
+      />
     </div>
   );
 }

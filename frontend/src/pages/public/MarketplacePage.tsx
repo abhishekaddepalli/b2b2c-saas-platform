@@ -620,6 +620,7 @@ export default function MarketplacePage() {
                   {services.map(s => {
                     const inWishlist = wishlistIds.has(s.id);
                     const categoryName = getCategoryDisplayName(s, 'Recurring Service');
+                    const serviceImageUrl = s.image_url || s.metadata?.image_url || (s.icon && (s.icon.startsWith('http') || s.icon.startsWith('/')) ? s.icon : null);
 
                     return (
                       <div
@@ -628,14 +629,22 @@ export default function MarketplacePage() {
                       >
                         <Link to={`${basePath}/services/${s.slug}`} className="block">
                           <div className="aspect-video bg-slate-950 relative overflow-hidden">
-                            {s.image_url ? (
-                              <img src={s.image_url} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-violet-950 via-slate-900 to-indigo-950 p-4 text-center">
-                                <Server className="w-10 h-10 text-violet-400 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">{categoryName}</span>
-                              </div>
-                            )}
+                            {serviceImageUrl ? (
+                              <img
+                                src={serviceImageUrl}
+                                alt={s.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                onError={(e) => {
+                                  // Fallback gracefully if image fails to load
+                                  (e.target as HTMLElement).style.display = 'none';
+                                  (e.target as HTMLElement).nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div className={`${serviceImageUrl ? 'hidden' : ''} w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-violet-950 via-slate-900 to-indigo-950 p-4 text-center`}>
+                              <Server className="w-10 h-10 text-violet-400 mb-1 group-hover:scale-110 transition-transform" />
+                              <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">{categoryName}</span>
+                            </div>
 
                             {/* Wishlist Button */}
                             <button

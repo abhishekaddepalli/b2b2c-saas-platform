@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { adminApi } from '../../api';
+import LiveChatWidget from '../chat/LiveChatWidget';
 
 export default function PublicLayout() {
   const { isAuthenticated, isSuperAdmin, isReseller } = useAuth();
@@ -198,6 +199,7 @@ export default function PublicLayout() {
           </div>
         </div>
       </footer>
+      <LiveChatWidget />
     </div>
   );
 }

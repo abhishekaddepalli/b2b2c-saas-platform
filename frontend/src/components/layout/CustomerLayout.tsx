@@ -10,6 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import LiveChatWidget from '../chat/LiveChatWidget';
 
 const navItems = [
   { label: 'Dashboard', to: '/app/dashboard', icon: LayoutDashboard },
@@ -101,6 +102,7 @@ export default function CustomerLayout() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <Outlet />
       </main>
+      <LiveChatWidget />
     </div>
   );
 }

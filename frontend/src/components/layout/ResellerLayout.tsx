@@ -12,8 +12,10 @@ import {
   Store,
   Users,
   Zap,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import LiveChatWidget from '../chat/LiveChatWidget';
 import { useQuery } from '@tanstack/react-query';
 import { resellerApi } from '../../api';
 import type { WalletBalance } from '../../types';
@@ -133,6 +135,7 @@ export default function ResellerLayout() {
           <Outlet />
         </main>
       </div>
+      <LiveChatWidget />
     </div>
   );
 }

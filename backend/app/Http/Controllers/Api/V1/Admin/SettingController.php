@@ -145,6 +145,42 @@ class SettingController extends Controller
             'captcha_on_login' => true,
             'captcha_on_register' => true,
             'captcha_on_forgot_password' => true,
+
+            // WooCommerce Integration
+            'enable_woocommerce' => false,
+            'woocommerce_store_url' => '',
+            'woocommerce_consumer_key' => '',
+            'woocommerce_consumer_secret' => '',
+            'woocommerce_webhook_secret' => '',
+            'woocommerce_default_import_type' => 'auto', // 'product', 'service', 'auto'
+            'woocommerce_reseller_margin' => 15,
+            'woocommerce_auto_sync_interval' => 'disabled', // 'hourly', 'daily', 'disabled'
+
+            // Twilio SMS & WhatsApp Dispatcher
+            'enable_twilio' => false,
+            'twilio_account_sid' => '',
+            'twilio_auth_token' => '',
+            'twilio_phone_number' => '', // e.g. +1234567890
+            'twilio_whatsapp_number' => '', // e.g. +14155238886 or whatsapp:+14155238886
+            'twilio_alert_orders_sms' => true,
+            'twilio_alert_orders_whatsapp' => true,
+            'twilio_alert_credentials_sms' => true,
+            'twilio_alert_credentials_whatsapp' => true,
+            'twilio_alert_otp_sms' => false,
+
+            // Live Chat Widget & Support Desk
+            'enable_chat_widget' => true,
+            'chat_widget_title' => 'Infiniforge Live Support',
+            'chat_widget_subtitle' => 'Typically replies in under 5 minutes',
+            'chat_widget_greeting' => 'Hello! 👋 How can our cloud architecture team assist you today?',
+            'chat_widget_primary_color' => '#6366f1',
+            'chat_widget_position' => 'bottom_right', // bottom_right, bottom_left
+            'chat_widget_whatsapp_number' => '+919876543210',
+            'chat_widget_agent_name' => 'Alex (Cloud Specialist)',
+            'chat_widget_agent_avatar' => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+            'support_hours' => '24/7 Mon - Sun',
+            'support_sla_hours' => '2 Hours',
+            'support_ticketing_enabled' => true,
         ];
     }
 

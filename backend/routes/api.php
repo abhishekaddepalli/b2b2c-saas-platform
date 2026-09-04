@@ -146,12 +146,22 @@ Route::prefix('v1')->group(function () {
             Route::get('dashboard', [DashboardController::class, 'index']);
             Route::get('dashboard/revenue-chart', [DashboardController::class, 'revenueChart']);
 
+            Route::post('products/bulk-action', [AdminProductController::class, 'bulkAction']);
             Route::apiResource('products', AdminProductController::class);
             Route::post('products/{id}/status', [AdminProductController::class, 'updateStatus']);
 
+            Route::post('services/bulk-action', [\App\Http\Controllers\Api\V1\Admin\ServiceController::class, 'bulkAction']);
             Route::apiResource('services', \App\Http\Controllers\Api\V1\Admin\ServiceController::class);
             Route::apiResource('categories', \App\Http\Controllers\Api\V1\Admin\CategoryController::class);
             Route::post('catalog/sync-infiniforge', [\App\Http\Controllers\Api\V1\Admin\CategoryController::class, 'syncInfiniforge']);
+
+            // Integrations: WooCommerce & Twilio
+            Route::prefix('integrations')->group(function () {
+                Route::post('woocommerce/test', [\App\Http\Controllers\Api\V1\Admin\WooCommerceController::class, 'test']);
+                Route::post('woocommerce/sync', [\App\Http\Controllers\Api\V1\Admin\WooCommerceController::class, 'sync']);
+                Route::post('twilio/test', [\App\Http\Controllers\Api\V1\Admin\TwilioController::class, 'test']);
+            });
+
             Route::apiResource('organizations', \App\Http\Controllers\Api\V1\Admin\OrganizationController::class);
             Route::post('organizations/{id}/status', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'updateStatus']);
             Route::post('organizations/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\OrganizationController::class, 'approve']);

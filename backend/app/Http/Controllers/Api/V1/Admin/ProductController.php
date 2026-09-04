@@ -168,4 +168,35 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Status updated.', 'data' => $product]);
     }
+
+    public function bulkAction(Request $request): JsonResponse
+    {
+        $request->validate([
+            'action' => ['required', 'in:delete,update_status,assign_category'],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'string'],
+            'status' => ['required_if:action,update_status', 'nullable', 'in:draft,active,archived'],
+            'category_id' => ['required_if:action,assign_category', 'nullable', 'string'],
+        ]);
+
+        $ids = $request->ids;
+        $count = count($ids);
+
+        if ($request->action === 'delete') {
+            Product::whereIn('id', $ids)->delete();
+            return response()->json(['message' => "Successfully deleted {$count} products."]);
+        }
+
+        if ($request->action === 'update_status') {
+            Product::whereIn('id', $ids)->update(['status' => $request->status]);
+            return response()->json(['message' => "Successfully updated status for {$count} products."]);
+        }
+
+        if ($request->action === 'assign_category') {
+            Product::whereIn('id', $ids)->update(['category_id' => $request->category_id]);
+            return response()->json(['message' => "Successfully updated category for {$count} products."]);
+        }
+
+        return response()->json(['message' => 'Invalid action.'], 400);
+    }
 }

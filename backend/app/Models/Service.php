@@ -12,6 +12,18 @@ class Service extends Model {
     use HasUuids, SoftDeletes, HasAuditLog;
     protected $fillable = ['slug','category_id','subcategory_id','name','short_description','full_description','icon','status','visibility','featured','billing_type','billing_interval','billing_interval_count','trial_days','grace_period_days','auto_renewal_default','suspension_rules','tags','metadata','sort_order'];
     protected $casts = ['featured'=>'boolean','auto_renewal_default'=>'boolean','tags'=>'array','suspension_rules'=>'array','metadata'=>'array'];
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string {
+        if (!empty($this->metadata['image_url'])) {
+            return $this->metadata['image_url'];
+        }
+        if (!empty($this->icon) && (str_starts_with($this->icon, 'http://') || str_starts_with($this->icon, 'https://') || str_starts_with($this->icon, '/'))) {
+            return $this->icon;
+        }
+        return null;
+    }
+
     protected static function boot(): void {
         parent::boot();
         static::creating(fn($m) => $m->slug = $m->slug ?: Str::slug($m->name));

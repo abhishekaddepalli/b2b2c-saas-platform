@@ -164,6 +164,7 @@ export const adminApi = {
   updateProduct: (id: string, data: object) => api.put(`/admin/products/${id}`, data),
   deleteProduct: (id: string) => api.delete(`/admin/products/${id}`),
   updateProductStatus: (id: string, status: string) => api.post(`/admin/products/${id}/status`, { status }),
+  bulkProducts: (data: { action: string; ids: string[]; status?: string; category_id?: string }) => api.post('/admin/products/bulk-action', data),
 
   // Services
   services: (params?: object) => api.get('/admin/services', { params }),
@@ -172,6 +173,7 @@ export const adminApi = {
   updateService: (id: string, data: object) => api.put(`/admin/services/${id}`, data),
   deleteService: (id: string) => api.delete(`/admin/services/${id}`),
   updateServiceStatus: (id: string, status: string) => api.post(`/admin/services/${id}/status`, { status }),
+  bulkServices: (data: { action: string; ids: string[]; status?: string; category_id?: string }) => api.post('/admin/services/bulk-action', data),
 
   // Categories
   categories: (params?: object) => api.get('/admin/categories', { params }),
@@ -271,6 +273,11 @@ export const adminApi = {
   globalSearch: (q: string) => api.get('/admin/control-center/search', { params: { q } }),
   controlCenterAnnouncements: () => api.get('/admin/control-center/announcements'),
   createAnnouncement: (data: object) => api.post('/admin/control-center/announcements', data),
+
+  // Ecosystem Integrations (WooCommerce & Twilio)
+  woocommerceTest: (data?: object) => api.post('/admin/integrations/woocommerce/test', data),
+  woocommerceSync: (data?: object) => api.post('/admin/integrations/woocommerce/sync', data),
+  twilioTest: (data: object) => api.post('/admin/integrations/twilio/test', data),
 };
 
 export const saasPlansApi = {
